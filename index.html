@@ -3,36 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iPad Fast-Scan Checkout</title>
+    <title>iPad Multi-Scan Pro</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --card: #1e293b; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         
-        /* Header & Mode Switch */
-        .header { padding: 15px; text-align: center; background: #1e293b; border-bottom: 1px solid #334155; }
-        .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin-top: 10px; }
-        .mode-btn { flex: 1; padding: 10px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-weight: bold; cursor: pointer; }
+        /* Compact Header */
+        .header { padding: 10px; background: var(--card); border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .mode-toggle { display: flex; background: #0f172a; border-radius: 6px; padding: 2px; }
+        .mode-btn { padding: 6px 15px; border: none; border-radius: 4px; color: #94a3b8; background: none; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
         .mode-btn.active { background: var(--primary); color: white; }
 
-        /* Scanner Area */
-        #reader { width: 100%; flex-grow: 1; background: black; }
+        /* Smaller Scanning Area (30% height) */
+        #reader { width: 100%; height: 35vh !important; background: black; }
         
-        /* Progress Overlay */
-        .overlay { padding: 20px; background: #1e293b; border-radius: 20px 20px 0 0; position: relative; z-index: 10; }
-        .step-container { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .step { flex: 1; text-align: center; padding: 10px; border-bottom: 4px solid #334155; color: #64748b; font-weight: bold; transition: 0.3s; }
-        .step.active { border-color: var(--primary); color: white; }
-        .step.complete { border-color: var(--success); color: var(--success); }
+        /* Feedback Panel (Top & Bottom focus) */
+        .panel { flex-grow: 1; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .status-card { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border-left: 5px solid var(--primary); }
+        .user-info { font-size: 1.2rem; font-weight: bold; color: var(--primary); margin-bottom: 5px; }
+        
+        /* Success Banner - Visual Alert */
+        #feedbackToast { 
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--success); color: white; padding: 20px 40px; border-radius: 50px;
+            font-weight: bold; font-size: 1.5rem; display: none; z-index: 1000;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.5);
+        }
 
-        .status-text { text-align: center; font-size: 1.1rem; margin-top: 5px; min-height: 1.5rem; }
-        #log-summary { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 10px; }
+        .btn-finish { background: #64748b; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%; margin-top: auto; }
+        
+        .history-list { font-size: 0.85rem; color: #94a3b8; }
+        .history-item { padding: 8px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <div style="font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">IPAD EXPRESS</div>
+    <div style="font-weight: 800; font-size: 0.9rem;">IPAD SCANNER</div>
     <div class="mode-toggle">
         <button id="btnBorrow" class="mode-btn active" onclick="setMode('borrow')">BORROW</button>
         <button id="btnReturn" class="mode-btn" onclick="setMode('return')">RETURN</button>
@@ -41,104 +49,105 @@
 
 <div id="reader"></div>
 
-<div class="overlay">
-    <div class="step-container">
-        <div id="step1" class="step active">1. SCAN USER</div>
-        <div id="step2" class="step">2. SCAN IPAD</div>
+<div id="feedbackToast">✅ SCAN SUCCESS</div>
+
+<div class="panel">
+    <div class="status-card">
+        <div id="instruction" style="font-size: 0.9rem; color: #94a3b8;">STEP 1</div>
+        <div id="displayMain" class="user-info">SCAN USER ID</div>
+        <div id="displaySub" style="font-size: 0.8rem;">Waiting for first scan...</div>
     </div>
-    <div id="status" class="status-text">Position QR code in camera view</div>
-    <div id="log-summary">Ready to scan...</div>
+
+    <div style="font-weight: bold; font-size: 0.8rem; color: #64748b;">SESSION HISTORY</div>
+    <div id="history" class="history-list"></div>
+
+    <button class="btn-finish" onclick="resetSession()">DONE / NEW USER</button>
 </div>
 
 <script>
-    // 1. UPDATE WITH YOUR WEB APP URL
-    const SCRIPT_URL = 'YOUR_GOOGLE_SCRIPT_URL_HERE';
+    const SCRIPT_URL = 'YOUR_GOOGLE_SCRIPT_URL_HERE'; // MUST BE UPDATED
     
     let mode = 'borrow';
     let userId = null;
-    let ipadId = null;
     let isProcessing = false;
 
     const html5QrCode = new Html5Qrcode("reader");
-    const config = { fps: 20, qrbox: { width: 250, height: 250 } };
+    const config = { fps: 20, qrbox: 200 };
 
-    // Start Scanner
     Html5Qrcode.getCameras().then(cameras => {
         if (cameras && cameras.length > 0) {
-            const backCam = cameras.find(c => c.label.toLowerCase().includes('back')) || cameras[0];
-            html5QrCode.start(backCam.id, config, onScanSuccess);
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
         }
     });
 
     function onScanSuccess(decodedText) {
         if (isProcessing) return;
 
-        // Feedback
-        if (window.navigator.vibrate) window.navigator.vibrate(100);
-
         if (!userId) {
-            // Validate User ID format (S001 or T001)
+            // First Scan: User ID
             if (decodedText.match(/^[ST]\d{3,5}$/i)) {
                 userId = decodedText.toUpperCase();
-                document.getElementById('step1').className = 'step complete';
-                document.getElementById('step2').className = 'step active';
-                document.getElementById('status').innerText = "User: " + userId;
-                document.getElementById('log-summary').innerText = "Now scan the iPad QR code";
-                // Short delay to prevent accidental double-scan
+                showFeedback("USER OK");
+                updateUI("STEP 2: SCAN IPADS", userId, "Scan as many iPads as needed");
                 isProcessing = true;
-                setTimeout(() => { isProcessing = false; }, 1500);
+                setTimeout(() => isProcessing = false, 1500); // Lock to prevent repeat
             }
-        } else if (!ipadId) {
-            // Validate iPad ID format (iPad-001)
+        } else {
+            // Consecutive Scans: iPad IDs
             if (decodedText.match(/^iPad-\d{3,5}$/i)) {
-                ipadId = decodedText;
-                document.getElementById('step2').className = 'step complete';
-                submitData();
+                const ipadId = decodedText;
+                showFeedback("IPAD OK");
+                submitData(ipadId);
+                isProcessing = true;
+                setTimeout(() => isProcessing = false, 1500);
             }
         }
     }
 
-    async function submitData() {
-        isProcessing = true;
-        document.getElementById('status').innerText = "⏳ Saving to Google Sheets...";
-        
+    function showFeedback(msg) {
+        if (window.navigator.vibrate) window.navigator.vibrate(200);
+        const toast = document.getElementById('feedbackToast');
+        toast.innerText = "✅ " + msg;
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', 800);
+    }
+
+    async function submitData(ipadId) {
+        const history = document.getElementById('history');
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `<span>${ipadId}</span><span style="color:#64748b">Saving...</span>`;
+        history.prepend(item);
+
         try {
-            const response = await fetch(SCRIPT_URL, {
+            await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
-                cache: 'no-cache',
-                body: JSON.stringify({
-                    action: mode,
-                    userId: userId,
-                    ipadId: ipadId
-                })
+                body: JSON.stringify({ action: mode, userId: userId, ipadId: ipadId })
             });
-
-            document.getElementById('status').style.color = '#10b981';
-            document.getElementById('status').innerText = "✅ SUCCESS: " + ipadId;
-            setTimeout(reset, 2000);
+            item.innerHTML = `<span>${ipadId}</span><span style="color:var(--success)">✓ Recorded</span>`;
         } catch (e) {
-            alert("Connection Error. Check internet.");
-            reset();
+            item.innerHTML = `<span>${ipadId}</span><span style="color:red">ERROR</span>`;
         }
     }
 
-    function reset() {
+    function updateUI(instr, main, sub) {
+        document.getElementById('instruction').innerText = instr;
+        document.getElementById('displayMain').innerText = main;
+        document.getElementById('displaySub').innerText = sub;
+    }
+
+    function resetSession() {
         userId = null;
-        ipadId = null;
-        isProcessing = false;
-        document.getElementById('status').style.color = 'white';
-        document.getElementById('status').innerText = "Position QR code in camera view";
-        document.getElementById('step1').className = 'step active';
-        document.getElementById('step2').className = 'step';
-        document.getElementById('log-summary').innerText = "Last Session Complete.";
+        document.getElementById('history').innerHTML = '';
+        updateUI("STEP 1", "SCAN USER ID", "Waiting for first scan...");
     }
 
     function setMode(m) {
         mode = m;
         document.getElementById('btnBorrow').classList.toggle('active', m === 'borrow');
         document.getElementById('btnReturn').classList.toggle('active', m === 'return');
-        reset();
+        resetSession();
     }
 </script>
 </body>
