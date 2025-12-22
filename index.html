@@ -374,7 +374,6 @@
             }
         }
 
-        /* Import DM Sans font */
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
     </style>
 </head>
@@ -434,8 +433,8 @@
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         // ============ CONFIGURATION ============
-        // REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/a/macros/whs.tc.edu.tw/s/AKfycbzHiiN8DZWsFkwrziv6CcAwB-L1KmXvvoUPQfoA8yFnnHkOh7kaAHe4niLKvLQlpMVx4A/exec';
+        const REQUEST_TIMEOUT = 15000; // 15 seconds
         
         // ============ STATE MANAGEMENT ============
         let currentMode = 'borrow';
@@ -470,17 +469,14 @@
         function setMode(mode) {
             currentMode = mode;
             
-            // Update button states
             borrowBtn.classList.toggle('active', mode === 'borrow');
             returnBtn.classList.toggle('active', mode === 'return');
             returnBtn.classList.toggle('return-mode', mode === 'return');
             
-            // Update colors
             scanBtn.classList.toggle('return-mode', mode === 'return');
             step1.classList.toggle('return-mode', mode === 'return');
             step2.classList.toggle('return-mode', mode === 'return');
             
-            // Reset
             resetScan();
         }
 
@@ -558,7 +554,6 @@
             stopCamera();
             
             if (currentStep === 1) {
-                // Validate user ID format (S001-S350 or T001-T100)
                 if (!data.match(/^[ST]\d{3}$/)) {
                     showAlert('error', 'Invalid user ID format. Expected format: S001 or T001');
                     return;
@@ -568,7 +563,6 @@
                 userIdDisplay.textContent = data;
                 scannedInfo.classList.add('show');
                 
-                // Move to step 2
                 currentStep = 2;
                 step1.classList.remove('active');
                 step2.classList.add('active');
@@ -583,7 +577,6 @@
                 resetBtn.style.display = 'block';
                 
             } else if (currentStep === 2) {
-                // Validate iPad ID format
                 if (!data.match(/^iPad-\d{3}$/)) {
                     showAlert('error', 'Invalid iPad ID format. Expected format: iPad-001');
                     return;
@@ -593,47 +586,72 @@
                 ipadIdDisplay.textContent = data;
                 ipadInfoItem.style.display = 'flex';
                 
-                // Submit transaction
                 await submitTransaction();
             }
         }
 
-        // ============ TRANSACTION SUBMISSION ============
+        // ============ TRANSACTION SUBMISSION WITH TIMEOUT ============
         async function submitTransaction() {
             scanBtn.disabled = true;
-            scanBtnText.innerHTML = '<span class="loading"></span> Processing...';
+            scanBtnText.innerHTML = '<span class="loading"></span> Saving...';
+            
+            // Create timeout promise
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Request timeout')), REQUEST_TIMEOUT)
+            );
+            
+            // Create fetch promise
+            const fetchPromise = fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                },
+                body: JSON.stringify({
+                    action: currentMode,
+                    userId: scannedUserId,
+                    ipadId: scannedIpadId,
+                    timestamp: new Date().toISOString()
+                }),
+                redirect: 'follow'
+            });
             
             try {
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: currentMode,
-                        userId: scannedUserId,
-                        ipadId: scannedIpadId,
-                        timestamp: new Date().toISOString()
-                    })
-                });
+                // Race between fetch and timeout
+                const response = await Promise.race([fetchPromise, timeoutPromise]);
                 
-                // Note: no-cors mode doesn't allow reading response
-                // We'll assume success if no error is thrown
-                showAlert('success', 
-                    currentMode === 'borrow' 
-                        ? `✓ iPad ${scannedIpadId} borrowed successfully!`
-                        : `✓ iPad ${scannedIpadId} returned successfully!`
-                );
+                // Try to read response
+                let result;
+                try {
+                    const text = await response.text();
+                    console.log('Response:', text);
+                    result = JSON.parse(text);
+                } catch (e) {
+                    // Can't parse response, but request likely succeeded
+                    console.log('Could not parse response, assuming success');
+                    result = { success: true };
+                }
                 
-                // Auto-reset after 3 seconds
-                setTimeout(() => {
-                    resetScan();
-                }, 3000);
+                if (result.success || response.ok) {
+                    showAlert('success', 
+                        currentMode === 'borrow' 
+                            ? `✓ iPad ${scannedIpadId} borrowed successfully!`
+                            : `✓ iPad ${scannedIpadId} returned successfully!`
+                    );
+                    
+                    setTimeout(() => resetScan(), 3000);
+                } else {
+                    throw new Error(result.error || 'Transaction failed');
+                }
                 
             } catch (error) {
-                showAlert('error', 'Connection error. Please check your internet and try again.');
                 console.error('Submission error:', error);
+                
+                if (error.message === 'Request timeout') {
+                    showAlert('warning', 'Request taking longer than expected. The transaction may still be processing. Please check Google Sheets.');
+                } else {
+                    showAlert('error', `Error: ${error.message}. Please try again or check Google Sheets.`);
+                }
+                
                 scanBtn.disabled = false;
                 scanBtnText.textContent = 'Retry';
             }
