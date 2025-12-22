@@ -2,452 +2,257 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iPad Checkout - Fast Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iPad Express Checkout</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f8fafc;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #f1f5f9;
+            font-family: -apple-system, system-ui, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
             min-height: 100vh;
-            padding: 1rem;
+            margin: 0;
+            overflow: hidden;
         }
 
         .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            text-align: center;
-            font-size: 2rem;
-            margin: 2rem 0 0.5rem;
-            background: linear-gradient(135deg, #10b981, #3b82f6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #cbd5e1;
-            margin-bottom: 2rem;
-        }
-
-        .mode-toggle {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .mode-btn {
-            padding: 1.5rem;
-            border: 2px solid transparent;
-            border-radius: 12px;
-            background: #334155;
-            color: white;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .mode-btn.active {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.2);
-        }
-
-        .scan-box {
-            background: #334155;
-            border-radius: 16px;
+            background: white;
             padding: 2rem;
-            margin-bottom: 1rem;
-        }
-
-        .step-dots {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #1e293b;
-            transition: all 0.3s;
-        }
-
-        .dot.active {
-            background: #10b981;
-            transform: scale(1.5);
-        }
-
-        .prompt {
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 450px;
             text-align: center;
-            margin-bottom: 1.5rem;
         }
 
-        .prompt h2 {
-            font-size: 1.3rem;
+        .mode-indicator {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            border-radius: 2rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .borrow-mode { background: #dcfce7; color: #166534; border: 2px solid #16a34a; }
+        .return-mode { background: #fee2e2; color: #991b1b; border: 2px solid #dc2626; }
+
+        h1 { font-size: 1.5rem; margin: 0 0 0.5rem 0; color: #1e293b; }
+        p { color: #64748b; margin-bottom: 2rem; }
+
+        /* The Hidden Input - This stays focused to catch scanner data */
+        #scannerInput {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .scan-zone {
+            background: #f1f5f9;
+            border: 3px dashed #cbd5e1;
+            border-radius: 1rem;
+            padding: 3rem 1rem;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .scan-zone:active { border-color: var(--primary); }
+
+        .data-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-top: 1rem;
+        }
+
+        .data-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+            min-height: 1.5rem;
             margin-bottom: 0.5rem;
         }
 
-        .prompt p {
-            color: #cbd5e1;
-            font-size: 0.9rem;
-        }
-
-        #video {
-            width: 100%;
-            border-radius: 12px;
-            background: #000;
-            display: block;
-        }
-
-        .scan-btn {
-            width: 100%;
-            padding: 1.2rem;
+        .status-msg {
+            height: 1.5rem;
+            font-weight: 600;
             margin-top: 1rem;
+        }
+
+        .btn-toggle {
+            background: none;
             border: none;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            font-size: 1.1rem;
+            color: var(--primary);
             font-weight: 600;
+            text-decoration: underline;
             cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .scan-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .info-box {
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 1.5rem;
             margin-top: 1rem;
-            display: none;
         }
 
-        .info-box.show {
-            display: block;
+        .history {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            text-align: left;
         }
 
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #334155;
-        }
-
-        .info-row:last-child {
-            border-bottom: none;
-        }
-
-        .info-label {
-            color: #94a3b8;
-        }
-
-        .info-value {
-            font-weight: 600;
-            color: #10b981;
-        }
-
-        .alert {
-            padding: 1rem;
-            border-radius: 12px;
-            margin: 1rem 0;
-            display: none;
-        }
-
-        .alert.show {
-            display: block;
-        }
-
-        .alert.success {
-            background: rgba(16, 185, 129, 0.2);
-            border: 1px solid #10b981;
-            color: #6ee7b7;
-        }
-
-        .alert.error {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid #ef4444;
-            color: #fca5a5;
-        }
-
-        .reset-btn {
-            width: 100%;
-            padding: 1rem;
-            margin-top: 1rem;
-            border: 2px solid #334155;
-            border-radius: 12px;
-            background: transparent;
-            color: #cbd5e1;
-            cursor: pointer;
-        }
-
-        .debug {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #1e293b;
-            border-radius: 8px;
+        .history-item {
             font-size: 0.85rem;
-            font-family: monospace;
-            color: #94a3b8;
+            color: #64748b;
+            padding: 0.25rem 0;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📱 iPad Checkout</h1>
-        <p class="subtitle">Fast QR Scanner</p>
 
-        <div class="mode-toggle">
-            <button class="mode-btn active" id="borrowBtn">✓ Borrow</button>
-            <button class="mode-btn" id="returnBtn">↩ Return</button>
-        </div>
+<div class="container">
+    <div id="badge" class="mode-indicator borrow-mode">Borrow Mode</div>
+    <h1 id="instruction">Scan User ID</h1>
+    <p>Scanner is ready...</p>
 
-        <div class="alert" id="alert"></div>
+    <input type="text" id="scannerInput" autofocus autocomplete="off">
 
-        <div class="scan-box">
-            <div class="step-dots">
-                <div class="dot active" id="dot1"></div>
-                <div class="dot" id="dot2"></div>
-            </div>
-
-            <div class="prompt">
-                <h2 id="title">Step 1: Scan Your ID</h2>
-                <p id="desc">Hold QR code 15cm from camera</p>
-            </div>
-
-            <video id="video" playsinline></video>
-            
-            <button class="scan-btn" id="scanBtn">Start Camera</button>
-
-            <div class="info-box" id="infoBox">
-                <div class="info-row">
-                    <span class="info-label">User ID:</span>
-                    <span class="info-value" id="userId">-</span>
-                </div>
-                <div class="info-row" id="ipadRow" style="display: none;">
-                    <span class="info-label">iPad ID:</span>
-                    <span class="info-value" id="ipadId">-</span>
-                </div>
-            </div>
-
-            <button class="reset-btn" id="resetBtn" style="display: none;">↻ Start Over</button>
-        </div>
-
-        <div class="debug" id="debug">Ready</div>
+    <div class="scan-zone" onclick="focusInput()">
+        <div class="data-label">Current User</div>
+        <div id="displayUser" class="data-value">-</div>
+        
+        <div class="data-label">iPad ID</div>
+        <div id="displayIpad" class="data-value">-</div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-    <script>
-        const SCRIPT_URL = 'https://script.google.com/a/macros/whs.tc.edu.tw/s/AKfycbzHiiN8DZWsFkwrziv6CcAwB-L1KmXvvoUPQfoA8yFnnHkOh7kaAHe4niLKvLQlpMVx4A/exec';
-        
-        let mode = 'borrow';
-        let step = 1;
-        let userId = null;
-        let ipadId = null;
-        let stream = null;
-        let scanning = false;
+    <div id="statusMsg" class="status-msg"></div>
 
-        const video = document.getElementById('video');
-        const scanBtn = document.getElementById('scanBtn');
-        const debug = document.getElementById('debug');
+    <button class="btn-toggle" onclick="toggleMode()">Switch to Return Mode</button>
 
-        // Mode toggle
-        document.getElementById('borrowBtn').onclick = () => setMode('borrow');
-        document.getElementById('returnBtn').onclick = () => setMode('return');
+    <div class="history">
+        <div style="font-weight: bold; margin-bottom: 5px;">Recent Activity</div>
+        <div id="historyLog"></div>
+    </div>
+</div>
 
-        function setMode(m) {
-            mode = m;
-            document.getElementById('borrowBtn').classList.toggle('active', m === 'borrow');
-            document.getElementById('returnBtn').classList.toggle('active', m === 'return');
-            reset();
+<script>
+    // 1. UPDATE THIS URL with your deployed Google Apps Script URL
+    const SCRIPT_URL = 'YOUR_GOOGLE_SCRIPT_URL_HERE';
+
+    let mode = 'borrow';
+    let userId = '';
+    let ipadId = '';
+    const scannerInput = document.getElementById('scannerInput');
+    const statusMsg = document.getElementById('statusMsg');
+
+    // Force focus on the hidden input constantly
+    document.addEventListener('click', focusInput);
+    setInterval(focusInput, 1000); 
+
+    function focusInput() {
+        scannerInput.focus();
+    }
+
+    scannerInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const value = scannerInput.value.trim();
+            if (value) processScan(value);
+            scannerInput.value = '';
         }
+    });
 
-        // Camera
-        scanBtn.onclick = () => {
-            if (scanning) stopCamera();
-            else startCamera();
+    function processScan(value) {
+        if (!userId) {
+            // First scan is the User
+            userId = value;
+            document.getElementById('displayUser').innerText = userId;
+            document.getElementById('instruction').innerText = "Scan iPad ID";
+            statusMsg.innerText = "User Identified. Now scan iPad.";
+            statusMsg.style.color = "var(--primary)";
+        } else {
+            // Second scan is the iPad
+            ipadId = value;
+            document.getElementById('displayIpad').innerText = ipadId;
+            submitToGoogle();
+        }
+    }
+
+    async function submitToGoogle() {
+        statusMsg.innerText = "Saving to Sheets...";
+        statusMsg.style.color = "#64748b";
+
+        const payload = {
+            action: mode,
+            userId: userId,
+            ipadId: ipadId
         };
 
-        async function startCamera() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                });
-                
-                video.srcObject = stream;
-                await video.play();
-                
-                scanning = true;
-                scanBtn.textContent = 'Scanning...';
-                scanBtn.disabled = true;
-                debug.textContent = 'Camera active - Hold QR code steady';
-                
-                scan();
-            } catch (err) {
-                debug.textContent = 'Error: ' + err.message;
-                alert('Camera error: ' + err.message);
-            }
-        }
+        try {
+            // Using 'no-cors' allows the request to reach Google Sheets 
+            // even if Google doesn't send the proper headers back.
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
-        function stopCamera() {
-            if (stream) {
-                stream.getTracks().forEach(t => t.stop());
-                video.srcObject = null;
-            }
-            scanning = false;
-            scanBtn.textContent = step === 1 ? 'Scan User ID' : 'Scan iPad ID';
-            scanBtn.disabled = false;
+            handleSuccess();
+        } catch (error) {
+            statusMsg.innerText = "Connection Error!";
+            statusMsg.style.color = "var(--danger)";
+            setTimeout(resetForm, 2000);
         }
+    }
 
-        // Fast scanning - process every 3rd frame
-        let frameCount = 0;
-        function scan() {
-            if (!scanning) return;
-            
-            frameCount++;
-            
-            // Only process every 3rd frame for speed
-            if (frameCount % 3 === 0 && video.readyState === video.HAVE_ENOUGH_DATA) {
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0);
-                
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, canvas.width, canvas.height, {
-                    inversionAttempts: 'attemptBoth'
-                });
-                
-                if (code && code.data) {
-                    debug.textContent = `Detected: "${code.data}"`;
-                    handleCode(code.data);
-                    return;
-                }
-            }
-            
-            requestAnimationFrame(scan);
+    function handleSuccess() {
+        statusMsg.innerText = "✓ Record Saved!";
+        statusMsg.style.color = "var(--success)";
+        
+        // Add to local history list
+        const log = document.getElementById('historyLog');
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerText = `${new Date().toLocaleTimeString()} - ${userId} ${mode === 'borrow' ? '→' : '←'} ${ipadId}`;
+        log.prepend(item);
+        if (log.children.length > 5) log.lastChild.remove();
+
+        setTimeout(resetForm, 1200);
+    }
+
+    function resetForm() {
+        userId = '';
+        ipadId = '';
+        document.getElementById('displayUser').innerText = '-';
+        document.getElementById('displayIpad').innerText = '-';
+        document.getElementById('instruction').innerText = "Scan User ID";
+        statusMsg.innerText = "";
+        focusInput();
+    }
+
+    function toggleMode() {
+        mode = (mode === 'borrow') ? 'return' : 'borrow';
+        const badge = document.getElementById('badge');
+        const btn = document.querySelector('.btn-toggle');
+        
+        if (mode === 'borrow') {
+            badge.innerText = "Borrow Mode";
+            badge.className = "mode-indicator borrow-mode";
+            btn.innerText = "Switch to Return Mode";
+        } else {
+            badge.innerText = "Return Mode";
+            badge.className = "mode-indicator return-mode";
+            btn.innerText = "Switch to Borrow Mode";
         }
+        resetForm();
+    }
+</script>
 
-        function handleCode(data) {
-            stopCamera();
-            
-            debug.textContent = `Scanned: "${data}" (length: ${data.length})`;
-            
-            if (step === 1) {
-                // Check if it matches user ID format
-                if (data.match(/^[ST]\d{3}$/)) {
-                    userId = data;
-                    document.getElementById('userId').textContent = data;
-                    document.getElementById('infoBox').classList.add('show');
-                    
-                    step = 2;
-                    document.getElementById('dot1').classList.remove('active');
-                    document.getElementById('dot2').classList.add('active');
-                    document.getElementById('title').textContent = 'Step 2: Scan iPad';
-                    document.getElementById('desc').textContent = 'Scan iPad QR code';
-                    scanBtn.textContent = 'Scan iPad ID';
-                    scanBtn.disabled = false;
-                    document.getElementById('resetBtn').style.display = 'block';
-                    
-                    debug.textContent = `✓ User ID: ${data}`;
-                } else {
-                    showAlert('error', `Invalid format: "${data}". Need: S001 or T001`);
-                    debug.textContent = `❌ Invalid: "${data}" (should be S001 format)`;
-                }
-                
-            } else if (step === 2) {
-                // Check iPad format
-                if (data.match(/^iPad-\d{3}$/)) {
-                    ipadId = data;
-                    document.getElementById('ipadId').textContent = data;
-                    document.getElementById('ipadRow').style.display = 'flex';
-                    
-                    debug.textContent = `✓ iPad ID: ${data} - Submitting...`;
-                    submit();
-                } else {
-                    showAlert('error', `Invalid format: "${data}". Need: iPad-001`);
-                    debug.textContent = `❌ Invalid: "${data}" (should be iPad-001 format)`;
-                }
-            }
-        }
-
-        async function submit() {
-            scanBtn.textContent = 'Saving...';
-            
-            try {
-                await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify({
-                        action: mode,
-                        userId: userId,
-                        ipadId: ipadId,
-                        timestamp: new Date().toISOString()
-                    })
-                });
-                
-                showAlert('success', `✓ ${mode === 'borrow' ? 'Borrowed' : 'Returned'} successfully!`);
-                debug.textContent = '✓ Saved to Google Sheets';
-                
-                setTimeout(reset, 3000);
-            } catch (err) {
-                showAlert('error', 'Error: ' + err.message);
-                debug.textContent = '❌ Error: ' + err.message;
-            }
-        }
-
-        document.getElementById('resetBtn').onclick = reset;
-
-        function reset() {
-            stopCamera();
-            step = 1;
-            userId = null;
-            ipadId = null;
-            
-            document.getElementById('dot1').classList.add('active');
-            document.getElementById('dot2').classList.remove('active');
-            document.getElementById('title').textContent = 'Step 1: Scan Your ID';
-            document.getElementById('desc').textContent = 'Hold QR code 15cm from camera';
-            scanBtn.textContent = 'Start Camera';
-            scanBtn.disabled = false;
-            
-            document.getElementById('infoBox').classList.remove('show');
-            document.getElementById('ipadRow').style.display = 'none';
-            document.getElementById('userId').textContent = '-';
-            document.getElementById('ipadId').textContent = '-';
-            document.getElementById('resetBtn').style.display = 'none';
-            document.getElementById('alert').classList.remove('show');
-            
-            debug.textContent = 'Ready';
-        }
-
-        function showAlert(type, msg) {
-            const alert = document.getElementById('alert');
-            alert.className = `alert ${type} show`;
-            alert.textContent = msg;
-        }
-    </script>
 </body>
 </html>
