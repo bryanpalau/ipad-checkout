@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iPad Multi-Scan Checkout</title>
+    <title>iPad Express | Multi-Scan & Review</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; }
@@ -19,19 +19,18 @@
         .overlay { padding: 15px; background: var(--panel); border-radius: 20px 20px 0 0; position: relative; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
         .user-info { display: flex; align-items: center; justify-content: space-between; background: #0f172a; padding: 10px 15px; border-radius: 10px; margin-bottom: 10px; border: 1px solid var(--primary); }
         .user-id-text { font-weight: bold; color: var(--primary); font-size: 1.2rem; }
-        .change-user { font-size: 0.8rem; color: #94a3b8; text-decoration: underline; cursor: pointer; }
 
         .status-banner { text-align: center; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; transition: all 0.3s; }
         .status-waiting { background: #334155; color: #cbd5e1; }
-        .status-success { background: var(--success); color: white; animation: pulse 0.5s; }
+        .status-success { background: var(--success); color: white; }
 
-        .scan-count { font-size: 0.9rem; color: #94a3b8; text-align: center; }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
+        /* History List Styles */
+        #historyList { max-height: 100px; overflow-y: auto; background: #0f172a; border-radius: 8px; padding: 5px; margin-top: 5px; font-size: 0.85rem; display: none; }
+        .history-item { display: flex; justify-content: space-between; padding: 4px 8px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+        .history-item:last-child { border-bottom: none; }
+        
+        .footer-btns { display: flex; gap: 10px; margin-top: 10px; }
+        .btn-action { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -48,14 +47,17 @@
 <div class="overlay">
     <div id="userPanel" class="user-info" style="display: none;">
         <div>User: <span id="currentUserId" class="user-id-text">-</span></div>
-        <div class="change-user" onclick="resetUser()">Change User</div>
+        <div id="sessionCount" style="font-size: 0.8rem; color: #94a3b8;">Count: 0</div>
     </div>
 
-    <div id="statusBanner" class="status-banner status-waiting">
-        STEP 1: SCAN USER ID
-    </div>
+    <div id="statusBanner" class="status-banner status-waiting">STEP 1: SCAN USER ID</div>
 
-    <div id="scanCount" class="scan-count">No iPads scanned in this session</div>
+    <div id="historyList"></div>
+
+    <div class="footer-btns">
+        <button class="btn-action" onclick="toggleHistory()">Review History</button>
+        <button class="btn-action" style="color: #f87171;" onclick="finishSession()">Finish Session</button>
+    </div>
 </div>
 
 <script>
@@ -63,13 +65,12 @@
     
     let mode = 'borrow';
     let userId = null;
-    let scanCount = 0;
+    let sessionHistory = [];
     let isProcessing = false;
 
     const html5QrCode = new Html5Qrcode("reader");
     const config = { fps: 20, qrbox: { width: 250, height: 250 } };
 
-    // Camera Init
     Html5Qrcode.getCameras().then(cameras => {
         if (cameras && cameras.length > 0) {
             const backCam = cameras.find(c => c.label.toLowerCase().includes('back')) || cameras[0];
@@ -80,18 +81,15 @@
     function onScanSuccess(decodedText) {
         if (isProcessing) return;
 
-        // Feedback: Vibration
         if (window.navigator.vibrate) window.navigator.vibrate(100);
 
         if (!userId) {
-            // STEP 1: Identify User
             if (decodedText.match(/^[ST]\d{3,5}$/i)) {
                 userId = decodedText.toUpperCase();
                 showUserPanel();
-                triggerFeedback("USER RECOGNIZED", "success");
+                updateBanner("USER RECOGNIZED", "success");
             }
         } else {
-            // STEP 2: Multi-iPad Scanning
             if (decodedText.match(/^iPad-\d{3,5}$/i)) {
                 submitIpad(decodedText);
             }
@@ -99,70 +97,84 @@
     }
 
     async function submitIpad(ipadId) {
+        // Prevent duplicate scans of the same iPad in one session
+        if (sessionHistory.includes(ipadId)) {
+            updateBanner("ALREADY SCANNED: " + ipadId, "waiting");
+            return;
+        }
+
         isProcessing = true;
-        const banner = document.getElementById('statusBanner');
-        banner.innerText = "SAVING " + ipadId + "...";
-        banner.className = "status-banner status-waiting";
+        updateBanner("SAVING " + ipadId + "...", "waiting");
 
         try {
-            // Send to Google Sheets
             await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
-                body: JSON.stringify({
-                    action: mode,
-                    userId: userId,
-                    ipadId: ipadId
-                })
+                body: JSON.stringify({ action: mode, userId: userId, ipadId: ipadId })
             });
 
-            // SUCCESS FEEDBACK
-            scanCount++;
-            document.getElementById('scanCount').innerText = "Session Count: " + scanCount + " iPads";
-            triggerFeedback("✅ " + ipadId + " SAVED", "success");
+            sessionHistory.push(ipadId);
+            updateUI(ipadId);
+            updateBanner("✅ " + ipadId + " SAVED", "success");
             
-            // Short cooldown to move to next iPad
-            setTimeout(() => { isProcessing = false; }, 1000);
+            setTimeout(() => { isProcessing = false; }, 1500);
         } catch (e) {
-            triggerFeedback("❌ CONNECTION ERROR", "waiting");
+            updateBanner("❌ ERROR: TRY AGAIN", "waiting");
             isProcessing = false;
         }
     }
 
-    function triggerFeedback(text, type) {
+    function updateUI(ipadId) {
+        document.getElementById('sessionCount').innerText = "Count: " + sessionHistory.length;
+        const list = document.getElementById('historyList');
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `<span>${ipadId}</span><span>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
+        list.prepend(item);
+    }
+
+    function updateBanner(text, type) {
         const banner = document.getElementById('statusBanner');
         banner.innerText = text;
         banner.className = "status-banner status-" + type;
-        
-        // Reset color after a moment if it's a success message
         if (type === 'success' && userId) {
             setTimeout(() => {
-                if (isProcessing) return;
-                banner.innerText = "READY FOR NEXT IPAD";
-                banner.className = "status-banner status-waiting";
+                if (!isProcessing) {
+                    banner.innerText = "READY FOR NEXT IPAD";
+                    banner.className = "status-banner status-waiting";
+                }
             }, 2000);
         }
+    }
+
+    function toggleHistory() {
+        const list = document.getElementById('historyList');
+        list.style.display = (list.style.display === 'none' || list.style.display === '') ? 'block' : 'none';
     }
 
     function showUserPanel() {
         document.getElementById('userPanel').style.display = 'flex';
         document.getElementById('currentUserId').innerText = userId;
-        document.getElementById('statusBanner').innerText = "READY TO SCAN IPADS";
     }
 
-    function resetUser() {
+    function finishSession() {
+        if (sessionHistory.length > 0) {
+            alert(`Session Complete!\nUser: ${userId}\nTotal: ${sessionHistory.length} iPads recorded.`);
+        }
         userId = null;
-        scanCount = 0;
+        sessionHistory = [];
         document.getElementById('userPanel').style.display = 'none';
-        document.getElementById('scanCount').innerText = "No iPads scanned in this session";
-        triggerFeedback("STEP 1: SCAN USER ID", "waiting");
+        document.getElementById('historyList').innerHTML = '';
+        document.getElementById('historyList').style.display = 'none';
+        document.getElementById('sessionCount').innerText = "Count: 0";
+        updateBanner("STEP 1: SCAN USER ID", "waiting");
     }
 
     function setMode(m) {
         mode = m;
         document.getElementById('btnBorrow').classList.toggle('active', m === 'borrow');
         document.getElementById('btnReturn').classList.toggle('active', m === 'return');
-        resetUser();
+        finishSession();
     }
 </script>
 </body>
