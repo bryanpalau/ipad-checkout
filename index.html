@@ -3,25 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iPad Express | No-Freeze Multi-Scan</title>
+    <title>iPad Express | Fixed Scanner Box</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .header { padding: 10px; text-align: center; background: var(--panel); border-bottom: 1px solid #334155; }
-        .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin: 5px auto; max-width: 400px; }
-        .mode-btn { flex: 1; padding: 8px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 2rem; font-weight: bold; cursor: pointer; }
+        
+        body { 
+            font-family: -apple-system, sans-serif; 
+            background: var(--bg); 
+            color: white; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+
+        .header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; flex-shrink: 0; }
+        
+        .mode-toggle { 
+            display: flex; 
+            background: #0f172a; 
+            border-radius: 8px; 
+            padding: 4px; 
+            margin: 0 auto; 
+            max-width: 400px; 
+        }
+
+        .mode-btn { 
+            flex: 1; padding: 10px; border: none; border-radius: 6px; 
+            color: #94a3b8; background: none; font-size: 1.5rem; 
+            font-weight: bold; cursor: pointer; 
+        }
+
         .mode-btn.active { background: var(--primary); color: white; }
-        #reader { width: 100%; flex: 1; overflow: hidden; background: black; }
-        .overlay { padding: 15px; background: var(--panel); border-radius: 20px 20px 0 0; position: relative; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); flex-shrink: 0;}
-        .user-info { display: flex; align-items: center; justify-content: space-between; font-size: 2rem; font-weight: bold; background: #0f172a; padding: 10px 15px; border-radius: 10px; margin-bottom: 10px; border: 1px solid var(--primary); }
-        .status-banner { text-align: center; padding: 12px; border-radius: 8px; font-size: 2rem; font-weight: bold; margin-bottom: 10px; transition: all 0.3s; }
+
+        /* FIXED SCANNER CONTAINER */
+        #reader { 
+            width: 100%; 
+            flex: 1; 
+            background: black; 
+            overflow: hidden;
+        }
+
+        /* Forces the video to stay within the box */
+        #reader video {
+            object-fit: cover !important;
+        }
+
+        .overlay { 
+            padding: 20px; 
+            background: var(--panel); 
+            border-radius: 20px 20px 0 0; 
+            z-index: 10; 
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+            flex-shrink: 0; 
+        }
+
+        .user-info { 
+            display: flex; align-items: center; justify-content: space-between; 
+            font-size: 1.6rem; font-weight: bold; background: #0f172a; 
+            padding: 12px; border-radius: 10px; margin-bottom: 10px; 
+            border: 2px solid var(--primary); 
+        }
+
+        .status-banner { 
+            text-align: center; padding: 15px; border-radius: 10px; 
+            font-size: 1.6rem; font-weight: bold; margin-bottom: 10px; 
+        }
+
         .status-waiting { background: #334155; color: #cbd5e1; }
         .status-success { background: var(--success); color: white; }
-        #historyList { max-height: 80px; overflow-y: auto; background: #0f172a; border-radius: 8px; padding: 5px; margin-top: 5px; font-size: 0.85rem; display: none; }
-        .history-item { display: flex; justify-content: space-between; padding: 4px 8px; border-bottom: 1px solid #1e293b; }
-        .footer-btns { display: flex; gap: 10px; margin-top: 10px; font-size: 2rem; }
-        .btn-action { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; font-size: 2rem; font-weight: bold; cursor: pointer; }
+
+        #historyList { 
+            max-height: 120px; overflow-y: auto; background: #0f172a; 
+            border-radius: 8px; margin-bottom: 10px; display: none; 
+        }
+
+        .history-item { 
+            display: flex; justify-content: space-between; padding: 10px; 
+            border-bottom: 1px solid #1e293b; font-size: 1.1rem;
+        }
+
+        .footer-btns { display: flex; gap: 10px; }
+
+        .btn-action { 
+            flex: 1; padding: 16px; border-radius: 10px; border: none; 
+            background: #334155; color: white; font-size: 1.6rem; 
+            font-weight: bold; cursor: pointer; 
+        }
+
+        .btn-finish { background: #ef4444; }
     </style>
 </head>
 <body>
@@ -37,19 +109,21 @@
 
 <div class="overlay">
     <div id="userPanel" class="user-info" style="display: none;">
-        <div>User: <span id="currentUserId" style="font-weight:bold; color:var(--primary)">-</span></div>
-        <div id="sessionCount" style="font-size: 2rem; color: #94a3b8;">Count: 0</div>
+        <div>User: <span id="currentUserId" style="color:var(--primary)">-</span></div>
+        <div id="sessionCount" style="color: #94a3b8;">Qty: 0</div>
     </div>
+    
     <div id="statusBanner" class="status-banner status-waiting">STEP 1: SCAN USER ID</div>
+    
     <div id="historyList"></div>
+    
     <div class="footer-btns">
         <button class="btn-action" onclick="toggleHistory()">Review</button>
-        <button class="btn-action" style="background: #ef4444;" onclick="finishSession()">FINISH</button>
+        <button class="btn-action btn-finish" onclick="finishSession()">FINISH</button>
     </div>
 </div>
 
 <script>
-    // ⚠️ CRITICAL: Replace this with your newly DEPLOYED Web App URL
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxK3sUhT-pA5rmsrkEMLUpnweznpbz9mTrn564UVU74vZGQV72oy5baQxuLdTzNjPaECw/exec';
     
     let mode = 'borrow';
@@ -58,32 +132,40 @@
     let isProcessing = false;
     let html5QrCode;
 
-    // Camera Start Function
     async function startScanner() {
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 20, qrbox: { width: 250, height: 250 } };
+        
+        // FIXED BOX: square 250px scan area
+        const config = { 
+            fps: 20, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0 
+        };
+
         try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length > 0) {
                 const backCam = cameras.find(c => c.label.toLowerCase().includes('back')) || cameras[0];
                 await html5QrCode.start(backCam.id, config, onScanSuccess);
             }
-        } catch (err) { console.error("Scanner error:", err); }
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     function onScanSuccess(decodedText) {
         if (isProcessing) return;
-        if (window.navigator.vibrate) window.navigator.vibrate(100);
+        if (window.navigator.vibrate) window.navigator.vibrate(80);
 
         if (!userId) {
-            if (decodedText.match(/^[ST]\d{3,5}$/i)) {
+            if (decodedText.match(/^[ST]\d{3,10}$/i)) {
                 userId = decodedText.toUpperCase();
                 document.getElementById('userPanel').style.display = 'flex';
                 document.getElementById('currentUserId').innerText = userId;
                 updateBanner("READY TO SCAN IPADS", "success");
             }
         } else {
-            if (decodedText.match(/^iPad-\d{3,5}$/i)) {
+            if (decodedText.match(/^iPad-\d{3,10}$/i)) {
                 submitIpad(decodedText);
             }
         }
@@ -91,7 +173,7 @@
 
     async function submitIpad(ipadId) {
         if (sessionHistory.includes(ipadId)) {
-            updateBanner("ALREADY SCANNED: " + ipadId, "waiting");
+            updateBanner("DUPLICATE: " + ipadId, "waiting");
             return;
         }
         isProcessing = true;
@@ -106,20 +188,20 @@
 
             sessionHistory.push(ipadId);
             updateUI(ipadId);
-            updateBanner("✅ " + ipadId + " CHECKED", "success");
-            setTimeout(() => { isProcessing = false; }, 1200);
+            updateBanner("✅ " + ipadId + " SAVED", "success");
+            setTimeout(() => { isProcessing = false; }, 1000);
         } catch (e) {
-            updateBanner("❌ CONNECTION ERROR", "waiting");
+            updateBanner("❌ ERROR", "waiting");
             isProcessing = false;
         }
     }
 
     function updateUI(ipadId) {
-        document.getElementById('sessionCount').innerText = "Count: " + sessionHistory.length;
+        document.getElementById('sessionCount').innerText = "Qty: " + sessionHistory.length;
         const list = document.getElementById('historyList');
         const item = document.createElement('div');
         item.className = 'history-item';
-        item.innerHTML = `<span>${ipadId}</span><span>${new Date().toLocaleTimeString()}</span>`;
+        item.innerHTML = `<span>${ipadId}</span><span>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
         list.prepend(item);
     }
 
@@ -131,7 +213,7 @@
 
     function toggleHistory() {
         const list = document.getElementById('historyList');
-        list.style.display = (list.style.display === 'none') ? 'block' : 'none';
+        list.style.display = (list.style.display === 'none' || list.style.display === '') ? 'block' : 'none';
     }
 
     function finishSession() {
@@ -139,9 +221,9 @@
         sessionHistory = [];
         document.getElementById('userPanel').style.display = 'none';
         document.getElementById('historyList').innerHTML = '';
-        document.getElementById('sessionCount').innerText = "Count: 0";
+        document.getElementById('historyList').style.display = 'none';
+        document.getElementById('sessionCount').innerText = "Qty: 0";
         updateBanner("STEP 1: SCAN USER ID", "waiting");
-        // Ensure camera remains active - no need to stop/start
         isProcessing = false; 
     }
 
