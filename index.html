@@ -25,7 +25,6 @@
         
         #historyList { flex-grow: 1; overflow-y: auto; background: #0f172a; border-radius: 12px; margin-bottom: 15px; display: none; }
         
-        /* Unified Button Alignment */
         .action-bar { display: flex; gap: 10px; align-items: stretch; height: 60px; }
         .btn-action { flex: 1; border-radius: 12px; border: none; background: #334155; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .btn-finish { background: var(--primary); }
@@ -50,7 +49,7 @@
         <span>User: <b id="currentUserId" style="color:var(--primary)">-</b></span>
         <span id="sessionCount">Qty: 0</span>
     </div>
-    <div id="statusBanner" class="status-banner status-waiting">SYNCING DATA...</div>
+    <div id="statusBanner" class="status-banner status-waiting">INITIALIZING...</div>
     <div id="historyList"></div>
     <div class="action-bar">
         <button class="btn-action" onclick="toggleHistory()">Review</button>
@@ -59,10 +58,11 @@
 </div>
 
 <script>
+    // --- CONFIGURATION ---
     const SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE'; 
 
     let mode = 'borrow', userId = null, sessionHistory = [], isProcessing = false;
-    let unavailableIpads = []; // iPads currently marked as "Borrowed" in Google Sheets
+    let unavailableIpads = []; 
     let lastScanned = null, lastScanTime = 0, html5QrCode;
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -81,7 +81,7 @@
         o.start(); o.stop(audioCtx.currentTime + 0.5);
     }
 
-    // --- TWO WAY SYNC: FETCH CURRENTLY BORROWED IPADS ---
+    // --- SYNC: GET BORROWED LIST ---
     async function syncBorrowedList() {
         try {
             const resp = await fetch(SCRIPT_URL);
@@ -91,7 +91,7 @@
                 updateBanner("STEP 1: SCAN USER ID", "status-waiting");
             }
         } catch (e) {
-            console.error("Initial Sync Failed:", e);
+            console.error("Sync Failed:", e);
             updateBanner("OFFLINE MODE - SCAN USER ID", "status-waiting");
         }
     }
@@ -101,8 +101,11 @@
         const config = { fps: 25, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
         try {
             await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
-            syncBorrowedList(); // Pull list from Sheet once camera starts
-        } catch (err) { console.error(err); }
+            syncBorrowedList();
+        } catch (err) { 
+            console.error(err);
+            updateBanner("CAMERA ERROR", "status-error");
+        }
     }
 
     function onScanSuccess(decodedText) {
@@ -111,7 +114,7 @@
         if (cleanData === lastScanned && (now - lastScanTime) < 2000) return;
         if (isProcessing) return;
 
-        // User ID Logic
+        // User ID Regex (Starts with S or T followed by numbers)
         if (!userId && cleanData.match(/^[ST]\d+/i)) {
             userId = cleanData.toUpperCase();
             lastScanned = cleanData; lastScanTime = now;
@@ -120,17 +123,15 @@
             updateBanner("READY TO SCAN IPADS", "status-success");
             playBeep(880, 200);
         } 
-        // iPad ID Logic
+        // iPad ID Regex (Starts with iPad-)
         else if (userId && cleanData.match(/^iPad-\d+/i)) {
-            // Check if already borrowed (only in Borrow mode)
             if (mode === 'borrow' && unavailableIpads.includes(cleanData)) {
-                updateBanner("IPAD ALREADY BORROWED", "status-error");
+                updateBanner("ALREADY BORROWED", "status-error");
                 playError();
                 return;
             }
-            // Check session duplicates
             if (sessionHistory.includes(cleanData)) {
-                updateBanner("ALREADY IN LIST", "status-error");
+                updateBanner("ALREADY IN SESSION", "status-error");
                 playError();
             } else {
                 sessionHistory.push(cleanData);
@@ -147,25 +148,37 @@
 
     async function finishSession() {
         if (!userId || sessionHistory.length === 0 || isProcessing) return;
+        
         isProcessing = true;
         document.getElementById('finishBtn').disabled = true;
         updateBanner("SAVING TO CLOUD...", "status-waiting");
 
+        const payload = {
+            action: mode,
+            userId: userId,
+            ipadId: sessionHistory
+        };
+
         try {
+            // Using text/plain to avoid CORS pre-flight triggers while sending JSON
             await fetch(SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors', // Critical for GitHub Pages
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: mode, userId: userId, ipadId: sessionHistory })
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload)
             });
 
-            updateBanner("✅ SAVED " + sessionHistory.length + " ITEMS", "status-success");
+            // Since no-cors hides response, we assume success if no network crash
+            updateBanner("✅ SUCCESS: DATA SENT", "status-success");
             playBeep(1100, 400);
             setTimeout(resetApp, 2500);
+            
         } catch (err) {
+            console.error("Sync Error:", err);
             playError();
-            alert("Sync Failed: Connection issue.");
-            isProcessing = false; document.getElementById('finishBtn').disabled = false;
+            alert("Connection error. Check Wi-Fi.");
+            isProcessing = false; 
+            document.getElementById('finishBtn').disabled = false;
         }
     }
 
@@ -196,7 +209,7 @@
         resetApp(); 
         document.getElementById('btnBorrow').classList.toggle('active', m==='borrow'); 
         document.getElementById('btnReturn').classList.toggle('active', m==='return'); 
-        syncBorrowedList(); // Re-sync list when switching modes
+        syncBorrowedList(); 
     }
 
     function toggleHistory() { 
