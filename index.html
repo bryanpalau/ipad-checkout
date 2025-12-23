@@ -9,8 +9,8 @@
         :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .header { padding: 10px; text-align: center; background: var(--panel); border-bottom: 1px solid #334155; }
-        .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin: 5px auto; max-width: 300px; }
-        .mode-btn { flex: 1; padding: 8px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-weight: bold; cursor: pointer; }
+        .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin: 5px auto; max-width: 400px; }
+        .mode-btn { flex: 1; padding: 8px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 2rem; font-weight: bold; cursor: pointer; }
         .mode-btn.active { background: var(--primary); color: white; }
         #reader { width: 50%; height: 50%; flex-grow: 1; background: black; }
         .overlay { padding: 15px; background: var(--panel); border-radius: 20px 20px 0 0; position: relative; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
@@ -20,8 +20,8 @@
         .status-success { background: var(--success); color: white; }
         #historyList { max-height: 80px; overflow-y: auto; background: #0f172a; border-radius: 8px; padding: 5px; margin-top: 5px; font-size: 0.85rem; display: none; }
         .history-item { display: flex; justify-content: space-between; padding: 4px 8px; border-bottom: 1px solid #1e293b; }
-        .footer-btns { display: flex; gap: 10px; margin-top: 10px; }
-        .btn-action { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; font-weight: bold; cursor: pointer; }
+        .footer-btns { display: flex; gap: 10px; margin-top: 10px; font-size: 2rem; }
+        .btn-action { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; font-size: 2rem; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
