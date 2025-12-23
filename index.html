@@ -6,31 +6,82 @@
     <title>iPad Express Checkout</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; --danger: #ef4444; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; --danger: #ef4444; --gray: #334155; }
         
-        .header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg); 
+            color: white; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        
+        .header { padding: 10px; background: var(--panel); border-bottom: 1px solid var(--gray); flex-shrink: 0; }
         .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin: 0 auto; max-width: 400px; }
-        .mode-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+        .mode-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .mode-btn.active { background: var(--primary); color: white; }
         
-        #reader { width: 100% !important; max-width: 500px; margin: 10px auto; aspect-ratio: 1 / 1; background: black; border-radius: 12px; overflow: hidden; border: 2px solid #334155; }
+        /* Optimization 4: Fixed height scanner to prevent squeezing */
+        #reader { 
+            width: 100% !important; 
+            max-width: 500px; 
+            margin: 10px auto; 
+            height: 280px; 
+            background: black; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            border: 2px solid var(--gray); 
+            flex-shrink: 0; 
+        }
         #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
 
-        .overlay { padding: 20px; background: var(--panel); border-radius: 24px 24px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); flex-grow: 1; display: flex; flex-direction: column; }
-        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
-        .status-waiting { background: #334155; color: #cbd5e1; }
+        .overlay { 
+            padding: 20px; 
+            background: var(--panel); 
+            border-radius: 24px 24px 0 0; 
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5); 
+            flex-grow: 1; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+        }
+
+        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; flex-shrink: 0; }
+        .status-waiting { background: var(--gray); color: #cbd5e1; }
         .status-success { background: var(--success); color: white; border: 2px solid #6ee7b7; }
         .status-error { background: var(--danger); color: white; }
         
-        #historyList { flex-grow: 1; overflow-y: auto; background: #0f172a; border-radius: 12px; margin-bottom: 15px; display: none; }
+        /* Optimization 4 & 5: Internal scrolling for history list */
+        #historyList { 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            background: #0f172a; 
+            border-radius: 12px; 
+            margin-bottom: 15px; 
+            border: 1px solid var(--gray);
+            display: none; 
+        }
         
-        .action-bar { display: flex; gap: 10px; align-items: stretch; height: 60px; }
-        .btn-action { flex: 1; border-radius: 12px; border: none; background: #334155; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .action-bar { display: flex; gap: 10px; align-items: stretch; height: 60px; flex-shrink: 0; }
+        .btn-action { flex: 1; border-radius: 12px; border: none; background: var(--gray); color: white; font-size: 1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
         .btn-finish { background: var(--primary); }
+        .btn-clear { background: #475569; }
+        .btn-action:active { opacity: 0.7; transform: scale(0.98); }
         .btn-finish:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .delete-btn { background: rgba(239, 68, 68, 0.2); color: #ff8080; border: 1px solid var(--danger); padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
+        .delete-btn { background: rgba(239, 68, 68, 0.2); color: #ff8080; border: 1px solid var(--danger); padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 0.75rem; cursor: pointer; }
+
+        /* Optimization 5: Responsive adjustments */
+        @media (max-width: 480px) {
+            #reader { height: 220px; }
+            .overlay { padding: 15px; }
+            .mode-btn { font-size: 0.9rem; padding: 10px; }
+            .action-bar { height: 50px; gap: 5px; }
+            .btn-action { font-size: 0.85rem; }
+        }
     </style>
 </head>
 <body>
@@ -45,13 +96,17 @@
 <div id="reader"></div>
 
 <div class="overlay">
-    <div id="userPanel" style="display:none; justify-content: space-between; padding: 10px; background: #0f172a; border-radius: 8px; margin-bottom:10px;">
+    <div id="userPanel" style="display:none; justify-content: space-between; padding: 12px; background: #0f172a; border-radius: 8px; margin-bottom:10px; border-left: 4px solid var(--primary);">
         <span>User: <b id="currentUserId" style="color:var(--primary)">-</b></span>
         <span id="sessionCount">Qty: 0</span>
     </div>
+    
     <div id="statusBanner" class="status-banner status-waiting">INITIALIZING...</div>
+    
     <div id="historyList"></div>
+
     <div class="action-bar">
+        <button class="btn-action btn-clear" onclick="clearAll()">Clear All</button>
         <button class="btn-action" onclick="toggleHistory()">Review</button>
         <button id="finishBtn" class="btn-action btn-finish" onclick="finishSession()">Finish & Save</button>
     </div>
@@ -59,29 +114,33 @@
 
 <script>
     // --- CONFIGURATION ---
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGxjlfUKHaeMQrj_psIWEuKsGspmqpAEIyxn6ev_k1gY0gi81Af-_mUK9ObkgAKY7mBA/exec'; 
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyoMeautlQFFlKYHb-rs7gkh77ger-B2d_splay795A3uphglCOWh2cVn72G4FMYwzuhQ/exec'; 
 
     let mode = 'borrow', userId = null, sessionHistory = [], isProcessing = false;
     let unavailableIpads = []; 
     let lastScanned = null, lastScanTime = 0, html5QrCode;
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
     function playBeep(f, d) {
         const o = audioCtx.createOscillator(), g = audioCtx.createGain();
         o.connect(g); g.connect(audioCtx.destination);
         o.frequency.value = f; g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d/1000);
         o.start(); o.stop(audioCtx.currentTime + d/1000);
     }
+
+    // Optimization 3: "Cute" Error Sound
     function playError() {
         const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-        o.type = 'sawtooth'; o.frequency.value = 120;
+        o.type = 'sine';
+        o.frequency.setValueAtTime(300, audioCtx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.3);
         o.connect(g); g.connect(audioCtx.destination);
         g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
-        o.start(); o.stop(audioCtx.currentTime + 0.5);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+        o.start(); o.stop(audioCtx.currentTime + 0.3);
     }
 
-    // --- SYNC: GET BORROWED LIST ---
     async function syncBorrowedList() {
         try {
             const resp = await fetch(SCRIPT_URL);
@@ -98,7 +157,7 @@
 
     async function startScanner() {
         html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 25, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+        const config = { fps: 25, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 };
         try {
             await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
             syncBorrowedList();
@@ -114,7 +173,7 @@
         if (cleanData === lastScanned && (now - lastScanTime) < 2000) return;
         if (isProcessing) return;
 
-        // User ID Regex (Starts with S or T followed by numbers)
+        // User ID Recognition
         if (!userId && cleanData.match(/^[ST]\d+/i)) {
             userId = cleanData.toUpperCase();
             lastScanned = cleanData; lastScanTime = now;
@@ -123,7 +182,7 @@
             updateBanner("READY TO SCAN IPADS", "status-success");
             playBeep(880, 200);
         } 
-        // iPad ID Regex (Starts with iPad-)
+        // iPad ID Recognition
         else if (userId && cleanData.match(/^iPad-\d+/i)) {
             if (mode === 'borrow' && unavailableIpads.includes(cleanData)) {
                 updateBanner("ALREADY BORROWED", "status-error");
@@ -146,6 +205,17 @@
         }
     }
 
+    // Optimization 1: Clear All Function
+    function clearAll() {
+        if (sessionHistory.length === 0) return;
+        if (confirm("Clear all scanned iPads and start over?")) {
+            sessionHistory = [];
+            renderHistory();
+            document.getElementById('historyList').style.display = 'none';
+            updateBanner("LIST CLEARED", "status-waiting");
+        }
+    }
+
     async function finishSession() {
         if (!userId || sessionHistory.length === 0 || isProcessing) return;
         
@@ -160,7 +230,6 @@
         };
 
         try {
-            // Using text/plain to avoid CORS pre-flight triggers while sending JSON
             await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -168,7 +237,6 @@
                 body: JSON.stringify(payload)
             });
 
-            // Since no-cors hides response, we assume success if no network crash
             updateBanner("✅ SUCCESS: DATA SENT", "status-success");
             playBeep(1100, 400);
             setTimeout(resetApp, 2500);
@@ -186,12 +254,12 @@
         const list = document.getElementById('historyList');
         document.getElementById('sessionCount').innerText = "Qty: " + sessionHistory.length;
         list.innerHTML = [...sessionHistory].reverse().map((id, i) => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #334155;">
-                <span style="font-weight:bold; letter-spacing:1px;">${id}</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #334155;">
+                <span style="font-weight:bold; letter-spacing:1px; color: #e2e8f0;">${id}</span>
                 <button class="delete-btn" onclick="removeItem(${i})">DELETE</button>
             </div>
         `).join('');
-        list.style.display = 'block';
+        if(sessionHistory.length > 0) list.style.display = 'block';
     }
 
     function removeItem(i) {
@@ -214,7 +282,9 @@
 
     function toggleHistory() { 
         const l = document.getElementById('historyList'); 
-        l.style.display = l.style.display==='none'?'block':'none'; 
+        if (sessionHistory.length > 0) {
+            l.style.display = l.style.display==='none'?'block':'none'; 
+        }
     }
 
     function updateBanner(t, c) { 
