@@ -3,64 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iPad Express | Batch & Remove</title>
+    <title>iPad Express Checkout</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; --danger: #ef4444; }
-        
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-
-        .header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; flex-shrink: 0; }
+        .header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; }
         .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin: 0 auto; max-width: 400px; }
-        .mode-btn { flex: 1; padding: 10px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 1.5rem; font-weight: bold; cursor: pointer; }
+        .mode-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 1.3rem; font-weight: bold; cursor: pointer; }
         .mode-btn.active { background: var(--primary); color: white; }
-
-        #reader { width: 100% !important; flex: 1; background: black; overflow: hidden; position: relative; }
+        
+        /* iPad Square Viewfinder Fix */
+        #reader { width: 100% !important; max-width: 500px; margin: 10px auto; aspect-ratio: 1 / 1; background: black; border-radius: 12px; overflow: hidden; border: 2px solid #334155; }
         #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
 
-        .overlay { padding: 20px; background: var(--panel); border-radius: 20px 20px 0 0; z-index: 10; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); flex-shrink: 0; }
-        
-        .user-info { display: flex; align-items: center; justify-content: space-between; font-size: 1.6rem; font-weight: bold; background: #0f172a; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 2px solid var(--primary); }
-        .qty-badge { background: var(--primary); color: white; padding: 4px 15px; border-radius: 20px; font-size: 1.2rem; }
-
-        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-size: 1.6rem; font-weight: bold; margin-bottom: 10px; }
+        .overlay { padding: 20px; background: var(--panel); border-radius: 24px 24px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); }
+        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
         .status-waiting { background: #334155; color: #cbd5e1; }
-        .status-success { background: var(--success); color: white; }
-
-        #historyList { 
-            max-height: 40vh; /* Scaled for mobile view */
-            overflow-y: auto; 
-            background: #0f172a; 
-            border: 2px solid #334155;
-            border-radius: 12px; 
-            margin-bottom: 15px; 
-            display: none; 
-        }
-
-        .history-item { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            padding: 18px; 
-            border-bottom: 1px solid #1e293b; 
-            font-size: 1.4rem;
-            font-weight: bold;
-        }
-
-        .btn-remove { 
-            background: var(--danger); 
-            color: white; 
-            border: none; 
-            padding: 10px 15px; 
-            border-radius: 8px; 
-            font-size: 1.1rem; 
-            cursor: pointer;
-        }
-
-        .footer-btns { display: flex; gap: 10px; }
-        .btn-action { flex: 1; padding: 18px; border-radius: 10px; border: none; background: #334155; color: white; font-size: 1.6rem; font-weight: bold; cursor: pointer; }
-        .btn-finish { background: var(--primary); border: 2px solid #6366f1; }
-        .btn-finish:disabled { opacity: 0.5; }
+        .status-success { background: var(--success); color: white; border: 2px solid #6ee7b7; }
+        .status-error { background: var(--danger); color: white; }
+        
+        #historyList { max-height: 20vh; overflow-y: auto; background: #0f172a; border-radius: 12px; margin-bottom: 15px; display: none; }
+        .btn-action { flex: 1; padding: 18px; border-radius: 12px; border: none; background: #334155; color: white; font-size: 1.2rem; font-weight: bold; }
+        .btn-finish { background: var(--primary); width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -75,137 +40,116 @@
 <div id="reader"></div>
 
 <div class="overlay">
-    <div id="userPanel" class="user-info" style="display: none;">
-        <div>User: <span id="currentUserId" style="color:var(--primary)">-</span></div>
-        <div id="sessionCount" class="qty-badge">Qty: 0</div>
+    <div id="userPanel" style="display:none; justify-content: space-between; padding: 10px; background: #0f172a; border-radius: 8px; margin-bottom:10px;">
+        <span>User: <b id="currentUserId" style="color:var(--primary)">-</b></span>
+        <span id="sessionCount">Qty: 0</span>
     </div>
-    
     <div id="statusBanner" class="status-banner status-waiting">STEP 1: SCAN USER ID</div>
-    
     <div id="historyList"></div>
-    
-    <div class="footer-btns">
-        <button class="btn-action" onclick="toggleHistory()">Review List</button>
+    <div style="display:flex; gap:10px;">
+        <button class="btn-action" onclick="toggleHistory()">Review</button>
         <button id="finishBtn" class="btn-action btn-finish" onclick="finishSession()">Finish & Save</button>
     </div>
 </div>
 
 <script>
-    const SCRIPT_URL = 'PASTE_YOUR_NEW_DEPLOYMENT_URL_HERE'; 
+    const SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE'; 
+
+    let mode = 'borrow', userId = null, sessionHistory = [], isProcessing = false;
+    let lastScanned = null, lastScanTime = 0, html5QrCode;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
-    let mode = 'borrow';
-    let userId = null;
-    let sessionHistory = [];
-    let isProcessing = false;
-    let html5QrCode;
+    function playBeep(f, d) {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.connect(g); g.connect(audioCtx.destination);
+        o.frequency.value = f; g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d/1000);
+        o.start(); o.stop(audioCtx.currentTime + d/1000);
+    }
+
+    function playError() {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'sawtooth'; o.frequency.value = 120;
+        o.connect(g); g.connect(audioCtx.destination);
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+        o.start(); o.stop(audioCtx.currentTime + 0.5);
+    }
 
     async function startScanner() {
-        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 20, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 25, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
         try {
-            const cameras = await Html5Qrcode.getCameras();
-            if (cameras && cameras.length > 0) {
-                const backCam = cameras.find(c => c.label.toLowerCase().includes('back')) || cameras[0];
-                await html5QrCode.start(backCam.id, config, onScanSuccess);
-            }
+            await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
         } catch (err) { console.error(err); }
     }
 
     function onScanSuccess(decodedText) {
+        const now = Date.now();
+        if (decodedText === lastScanned && (now - lastScanTime) < 2000) return;
         if (isProcessing) return;
 
-        // User Scan
+        // Pattern match from your Sheet: S001 or T001
         if (!userId && decodedText.match(/^[ST]\d{3,10}$/i)) {
             userId = decodedText.toUpperCase();
+            lastScanned = decodedText; lastScanTime = now;
             document.getElementById('userPanel').style.display = 'flex';
             document.getElementById('currentUserId').innerText = userId;
-            updateBanner("READY TO SCAN IPADS", "success");
-            vibrate();
+            updateBanner("READY TO SCAN IPADS", "status-success");
+            playBeep(880, 200);
         } 
-        // iPad Scan
+        // Pattern match from your Sheet: iPad-001
         else if (userId && decodedText.match(/^iPad-\d{3,10}$/i)) {
             if (!sessionHistory.includes(decodedText)) {
                 sessionHistory.push(decodedText);
+                lastScanned = decodedText; lastScanTime = now;
                 renderHistory();
-                updateBanner("ADDED " + decodedText, "success");
-                vibrate();
+                updateBanner("ADDED " + decodedText, "status-success");
+                playBeep(660, 100);
             }
+        } else {
+            playError();
+            updateBanner(userId ? "INVALID IPAD ID" : "SCAN USER ID FIRST", "status-error");
+        }
+    }
+
+    async function finishSession() {
+        if (!userId || sessionHistory.length === 0 || isProcessing) return;
+        isProcessing = true;
+        document.getElementById('finishBtn').disabled = true;
+        updateBanner("SAVING TO CLOUD...", "status-waiting");
+
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'cors',
+                body: JSON.stringify({ action: mode, userId: userId, ipadId: sessionHistory })
+            });
+            const res = await response.json();
+            if (res.success) {
+                updateBanner("✅ SAVED " + res.count + " ITEMS", "status-success");
+                playBeep(1100, 400);
+                setTimeout(resetApp, 2500);
+            } else { throw new Error(res.error); }
+        } catch (err) {
+            playError();
+            alert("Sync Failed: " + err.message);
+            isProcessing = false; document.getElementById('finishBtn').disabled = false;
         }
     }
 
     function renderHistory() {
         const list = document.getElementById('historyList');
         document.getElementById('sessionCount').innerText = "Qty: " + sessionHistory.length;
-        
-        if (sessionHistory.length > 0) {
-            list.style.display = 'block';
-            list.innerHTML = sessionHistory.map((id, index) => `
-                <div class="history-item">
-                    <span>${id}</span>
-                    <button class="btn-remove" onclick="removeItem(${index})">Remove</button>
-                </div>
-            `).sort().join(''); // Optional sort for easier review
-        } else {
-            list.style.display = 'none';
-        }
+        list.innerHTML = sessionHistory.map((id, i) => `<div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #334155;"><span>${id}</span><button onclick="removeItem(${i})" style="color:var(--danger); background:none; border:none; font-weight:bold;">X</button></div>`).reverse().join('');
+        list.style.display = 'block';
     }
 
-    function removeItem(index) {
-        sessionHistory.splice(index, 1);
-        renderHistory();
-        if (sessionHistory.length === 0) updateBanner("READY TO SCAN IPADS", "success");
-    }
-
-    async function finishSession() {
-        if (!userId || sessionHistory.length === 0) return;
-        
-        isProcessing = true;
-        const finishBtn = document.getElementById('finishBtn');
-        finishBtn.disabled = true;
-        updateBanner("SAVING TO SHEETS...", "waiting");
-
-        try {
-            // Note: using no-cors because Apps Script is a redirecting service
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify({ action: mode, userId: userId, ipadId: sessionHistory })
-            });
-
-            updateBanner("✅ ALL " + sessionHistory.length + " SAVED", "success");
-            setTimeout(resetApp, 2000);
-        } catch (e) {
-            updateBanner("❌ SAVE ERROR", "waiting");
-            finishBtn.disabled = false;
-            isProcessing = false;
-        }
-    }
-
-    function resetApp() {
-        userId = null;
-        sessionHistory = [];
-        isProcessing = false;
-        document.getElementById('finishBtn').disabled = false;
-        document.getElementById('userPanel').style.display = 'none';
-        renderHistory();
-        updateBanner("STEP 1: SCAN USER ID", "waiting");
-    }
-
-    function toggleHistory() {
-        const list = document.getElementById('historyList');
-        const isHidden = (list.style.display === 'none' || list.style.display === '');
-        list.style.display = isHidden ? 'block' : 'none';
-        if (isHidden) list.scrollTop = 0;
-    }
-
-    function setMode(m) {
-        mode = m;
-        document.getElementById('btnBorrow').classList.toggle('active', m === 'borrow');
-        document.getElementById('btnReturn').classList.toggle('active', m === 'return');
-        resetApp();
-    }
-
-    function vibrate() { if (window.navigator.vibrate) window.navigator.vibrate(80); }
+    function removeItem(i) { sessionHistory.splice(i, 1); renderHistory(); }
+    function setMode(m) { mode = m; resetApp(); document.getElementById('btnBorrow').classList.toggle('active', m==='borrow'); document.getElementById('btnReturn').classList.toggle('active', m==='return'); }
+    function toggleHistory() { const l = document.getElementById('historyList'); l.style.display = l.style.display==='none'?'block':'none'; }
+    function updateBanner(t, c) { const b = document.getElementById('statusBanner'); b.innerText = t; b.className = "status-banner " + c; }
+    function resetApp() { userId = null; sessionHistory = []; isProcessing = false; document.getElementById('finishBtn').disabled = false; document.getElementById('userPanel').style.display = 'none'; document.getElementById('historyList').style.display = 'none'; renderHistory(); updateBanner("STEP 1: SCAN USER ID", "status-waiting"); }
 
     startScanner();
 </script>
