@@ -18,17 +18,18 @@
         #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
 
         .overlay { padding: 20px; background: var(--panel); border-radius: 24px 24px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); flex-grow: 1; display: flex; flex-direction: column; }
-        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; transition: 0.3s; }
+        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
         .status-waiting { background: #334155; color: #cbd5e1; }
         .status-success { background: var(--success); color: white; border: 2px solid #6ee7b7; }
         .status-error { background: var(--danger); color: white; }
         
         #historyList { flex-grow: 1; overflow-y: auto; background: #0f172a; border-radius: 12px; margin-bottom: 15px; display: none; }
         
+        /* Unified Button Alignment */
         .action-bar { display: flex; gap: 10px; align-items: stretch; height: 60px; }
         .btn-action { flex: 1; border-radius: 12px; border: none; background: #334155; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .btn-finish { background: var(--primary); }
-        .btn-finish:disabled { opacity: 0.5; }
+        .btn-finish:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .delete-btn { background: rgba(239, 68, 68, 0.2); color: #ff8080; border: 1px solid var(--danger); padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
     </style>
@@ -49,7 +50,7 @@
         <span>User: <b id="currentUserId" style="color:var(--primary)">-</b></span>
         <span id="sessionCount">Qty: 0</span>
     </div>
-    <div id="statusBanner" class="status-banner status-waiting">STEP 1: SCAN USER ID</div>
+    <div id="statusBanner" class="status-banner status-waiting">SYNCING DATA...</div>
     <div id="historyList"></div>
     <div class="action-bar">
         <button class="btn-action" onclick="toggleHistory()">Review</button>
@@ -58,10 +59,10 @@
 </div>
 
 <script>
-    // --- CHANGE THIS TO YOUR NEW DEPLOYMENT URL ---
-    const SCRIPT_URL = 'PASTE_YOUR_NEW_APPS_SCRIPT_URL_HERE'; 
+    const SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE'; 
 
     let mode = 'borrow', userId = null, sessionHistory = [], isProcessing = false;
+    let unavailableIpads = []; // iPads currently marked as "Borrowed" in Google Sheets
     let lastScanned = null, lastScanTime = 0, html5QrCode;
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -80,11 +81,27 @@
         o.start(); o.stop(audioCtx.currentTime + 0.5);
     }
 
+    // --- TWO WAY SYNC: FETCH CURRENTLY BORROWED IPADS ---
+    async function syncBorrowedList() {
+        try {
+            const resp = await fetch(SCRIPT_URL);
+            const data = await resp.json();
+            if (data.borrowed) {
+                unavailableIpads = data.borrowed;
+                updateBanner("STEP 1: SCAN USER ID", "status-waiting");
+            }
+        } catch (e) {
+            console.error("Initial Sync Failed:", e);
+            updateBanner("OFFLINE MODE - SCAN USER ID", "status-waiting");
+        }
+    }
+
     async function startScanner() {
         html5QrCode = new Html5Qrcode("reader");
         const config = { fps: 25, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
         try {
             await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+            syncBorrowedList(); // Pull list from Sheet once camera starts
         } catch (err) { console.error(err); }
     }
 
@@ -94,7 +111,7 @@
         if (cleanData === lastScanned && (now - lastScanTime) < 2000) return;
         if (isProcessing) return;
 
-        // User ID Pattern (Starts with S or T)
+        // User ID Logic
         if (!userId && cleanData.match(/^[ST]\d+/i)) {
             userId = cleanData.toUpperCase();
             lastScanned = cleanData; lastScanTime = now;
@@ -103,10 +120,17 @@
             updateBanner("READY TO SCAN IPADS", "status-success");
             playBeep(880, 200);
         } 
-        // iPad ID Pattern (Starts with iPad-)
+        // iPad ID Logic
         else if (userId && cleanData.match(/^iPad-\d+/i)) {
+            // Check if already borrowed (only in Borrow mode)
+            if (mode === 'borrow' && unavailableIpads.includes(cleanData)) {
+                updateBanner("IPAD ALREADY BORROWED", "status-error");
+                playError();
+                return;
+            }
+            // Check session duplicates
             if (sessionHistory.includes(cleanData)) {
-                updateBanner("ALREADY SCANNED", "status-error");
+                updateBanner("ALREADY IN LIST", "status-error");
                 playError();
             } else {
                 sessionHistory.push(cleanData);
@@ -128,10 +152,9 @@
         updateBanner("SAVING TO CLOUD...", "status-waiting");
 
         try {
-            // Using 'no-cors' to bypass GitHub -> Google App Script security pattern error
             await fetch(SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors',
+                mode: 'no-cors', // Critical for GitHub Pages
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: mode, userId: userId, ipadId: sessionHistory })
             });
@@ -141,7 +164,7 @@
             setTimeout(resetApp, 2500);
         } catch (err) {
             playError();
-            alert("Sync Failed: Check your internet.");
+            alert("Sync Failed: Connection issue.");
             isProcessing = false; document.getElementById('finishBtn').disabled = false;
         }
     }
@@ -149,7 +172,6 @@
     function renderHistory() {
         const list = document.getElementById('historyList');
         document.getElementById('sessionCount').innerText = "Qty: " + sessionHistory.length;
-        // Reversed so latest scan is on top
         list.innerHTML = [...sessionHistory].reverse().map((id, i) => `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #334155;">
                 <span style="font-weight:bold; letter-spacing:1px;">${id}</span>
@@ -169,10 +191,32 @@
         }
     }
 
-    function setMode(m) { mode = m; resetApp(); document.getElementById('btnBorrow').classList.toggle('active', m==='borrow'); document.getElementById('btnReturn').classList.toggle('active', m==='return'); }
-    function toggleHistory() { const l = document.getElementById('historyList'); l.style.display = l.style.display==='none'?'block':'none'; }
-    function updateBanner(t, c) { const b = document.getElementById('statusBanner'); b.innerText = t; b.className = "status-banner " + c; }
-    function resetApp() { userId = null; sessionHistory = []; isProcessing = false; document.getElementById('finishBtn').disabled = false; document.getElementById('userPanel').style.display = 'none'; document.getElementById('historyList').style.display = 'none'; renderHistory(); updateBanner("STEP 1: SCAN USER ID", "status-waiting"); }
+    function setMode(m) { 
+        mode = m; 
+        resetApp(); 
+        document.getElementById('btnBorrow').classList.toggle('active', m==='borrow'); 
+        document.getElementById('btnReturn').classList.toggle('active', m==='return'); 
+        syncBorrowedList(); // Re-sync list when switching modes
+    }
+
+    function toggleHistory() { 
+        const l = document.getElementById('historyList'); 
+        l.style.display = l.style.display==='none'?'block':'none'; 
+    }
+
+    function updateBanner(t, c) { 
+        const b = document.getElementById('statusBanner'); 
+        b.innerText = t; b.className = "status-banner " + c; 
+    }
+
+    function resetApp() { 
+        userId = null; sessionHistory = []; isProcessing = false; 
+        document.getElementById('finishBtn').disabled = false; 
+        document.getElementById('userPanel').style.display = 'none'; 
+        document.getElementById('historyList').style.display = 'none'; 
+        renderHistory(); 
+        updateBanner("STEP 1: SCAN USER ID", "status-waiting"); 
+    }
 
     startScanner();
 </script>
