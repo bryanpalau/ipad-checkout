@@ -12,10 +12,10 @@
         .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin: 5px auto; max-width: 400px; }
         .mode-btn { flex: 1; padding: 8px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 2rem; font-weight: bold; cursor: pointer; }
         .mode-btn.active { background: var(--primary); color: white; }
-        #reader { width: 50%; height: 50%; flex-grow: 1; background: black; }
+        #reader { width: 100%; flex-grow: 1; background: black; }
         .overlay { padding: 15px; background: var(--panel); border-radius: 20px 20px 0 0; position: relative; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
         .user-info { display: flex; align-items: center; justify-content: space-between; background: #0f172a; padding: 10px 15px; border-radius: 10px; margin-bottom: 10px; border: 1px solid var(--primary); }
-        .status-banner { text-align: center; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; transition: all 0.3s; }
+        .status-banner { text-align: center; padding: 12px; border-radius: 8px; font-size: 2rem; font-weight: bold; margin-bottom: 10px; transition: all 0.3s; }
         .status-waiting { background: #334155; color: #cbd5e1; }
         .status-success { background: var(--success); color: white; }
         #historyList { max-height: 80px; overflow-y: auto; background: #0f172a; border-radius: 8px; padding: 5px; margin-top: 5px; font-size: 0.85rem; display: none; }
@@ -38,7 +38,7 @@
 <div class="overlay">
     <div id="userPanel" class="user-info" style="display: none;">
         <div>User: <span id="currentUserId" style="font-weight:bold; color:var(--primary)">-</span></div>
-        <div id="sessionCount" style="font-size: 0.8rem; color: #94a3b8;">Count: 0</div>
+        <div id="sessionCount" style="font-size: 2rem; color: #94a3b8;">Count: 0</div>
     </div>
     <div id="statusBanner" class="status-banner status-waiting">STEP 1: SCAN USER ID</div>
     <div id="historyList"></div>
