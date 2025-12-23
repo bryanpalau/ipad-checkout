@@ -44,7 +44,7 @@
     <div id="historyList"></div>
     <div class="footer-btns">
         <button class="btn-action" onclick="toggleHistory()">Review</button>
-        <button class="btn-action" style="background: #ef4444;" onclick="finishSession()">Confirm</button>
+        <button class="btn-action" style="background: #ef4444;" onclick="finishSession()">FINISH</button>
     </div>
 </div>
 
@@ -106,7 +106,7 @@
 
             sessionHistory.push(ipadId);
             updateUI(ipadId);
-            updateBanner("✅ " + ipadId + " SAVED", "success");
+            updateBanner("✅ " + ipadId + " CHECKED", "success");
             setTimeout(() => { isProcessing = false; }, 1200);
         } catch (e) {
             updateBanner("❌ CONNECTION ERROR", "waiting");
