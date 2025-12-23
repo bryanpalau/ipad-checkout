@@ -7,30 +7,80 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; --danger: #ef4444; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        .header { padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; }
+        /* RESPONSIVE FLEXBOX SETUP */
+        body { 
+            font-family: -apple-system, sans-serif; 
+            background: var(--bg); 
+            color: white; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            height: -webkit-fill-available; 
+            overflow: hidden; 
+        }
+        
+        .header { flex-shrink: 0; padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; }
+        
         .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin: 0 auto; max-width: 400px; }
         .mode-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
         .mode-btn.active { background: var(--primary); color: white; }
         
-        #reader { width: 100% !important; max-width: 500px; margin: 10px auto; aspect-ratio: 1 / 1; background: black; border-radius: 12px; overflow: hidden; border: 2px solid #334155; }
+        /* FIXED CAMERA - Prevents Squeezing */
+        #reader { 
+            width: 100% !important; 
+            max-width: 500px; 
+            margin: 10px auto; 
+            height: 280px !important; 
+            background: black; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            border: 2px solid #334155;
+            flex-shrink: 0; 
+        }
         #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
 
-        .overlay { padding: 20px; background: var(--panel); border-radius: 24px 24px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); flex-grow: 1; display: flex; flex-direction: column; }
-        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
+        .overlay { 
+            padding: 20px; 
+            background: var(--panel); 
+            border-radius: 24px 24px 0 0; 
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5); 
+            flex-grow: 1; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+        }
+
+        .status-banner { flex-shrink: 0; text-align: center; padding: 12px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
         .status-waiting { background: #334155; color: #cbd5e1; }
         .status-success { background: var(--success); color: white; border: 2px solid #6ee7b7; }
         .status-error { background: var(--danger); color: white; }
         
-        #historyList { flex-grow: 1; overflow-y: auto; background: #0f172a; border-radius: 12px; margin-bottom: 15px; display: none; }
+        /* SCROLLABLE LIST AREA */
+        #historyList { 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            background: #0f172a; 
+            border-radius: 12px; 
+            margin-bottom: 15px; 
+            border: 1px solid #334155;
+            -webkit-overflow-scrolling: touch;
+        }
         
-        .action-bar { display: flex; gap: 10px; align-items: stretch; height: 60px; }
+        #userPanel { flex-shrink: 0; display:none; justify-content: space-between; align-items: center; padding: 10px; background: #0f172a; border-radius: 8px; margin-bottom:10px; }
+        
+        .action-bar { flex-shrink: 0; display: flex; gap: 10px; align-items: stretch; height: 60px; margin-top: auto; }
         .btn-action { flex: 1; border-radius: 12px; border: none; background: #334155; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .btn-finish { background: var(--primary); }
         .btn-finish:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .delete-btn { background: rgba(239, 68, 68, 0.2); color: #ff8080; border: 1px solid var(--danger); padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
+        .clear-btn { background: none; border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.7rem; }
+
+        @media (max-height: 700px) {
+            #reader { height: 200px !important; }
+        }
     </style>
 </head>
 <body>
@@ -45,9 +95,9 @@
 <div id="reader"></div>
 
 <div class="overlay">
-    <div id="userPanel" style="display:none; justify-content: space-between; padding: 10px; background: #0f172a; border-radius: 8px; margin-bottom:10px;">
+    <div id="userPanel">
         <span>User: <b id="currentUserId" style="color:var(--primary)">-</b></span>
-        <span id="sessionCount">Qty: 0</span>
+        <button class="clear-btn" onclick="clearBatch()">CLEAR ALL</button>
     </div>
     <div id="statusBanner" class="status-banner status-waiting">INITIALIZING...</div>
     <div id="historyList"></div>
@@ -58,8 +108,8 @@
 </div>
 
 <script>
-    // --- CONFIGURATION ---
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCwZGqnL66yX7YJpPZ4odjTWXHTZHPRwiQzXtR7f5MTl1nbayjDPROrfhZqJbqJOlbZQ/exec'; 
+    // --- REPLACE THIS WITH YOUR WEB APP URL ---
+    const SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE'; 
 
     let mode = 'borrow', userId = null, sessionHistory = [], isProcessing = false;
     let unavailableIpads = []; 
@@ -81,18 +131,14 @@
         o.start(); o.stop(audioCtx.currentTime + 0.5);
     }
 
-    // --- SYNC: GET BORROWED LIST ---
     async function syncBorrowedList() {
         try {
             const resp = await fetch(SCRIPT_URL);
             const data = await resp.json();
-            if (data.borrowed) {
-                unavailableIpads = data.borrowed;
-                updateBanner("STEP 1: SCAN USER ID", "status-waiting");
-            }
+            if (data.borrowed) unavailableIpads = data.borrowed;
+            updateBanner("STEP 1: SCAN USER ID", "status-waiting");
         } catch (e) {
-            console.error("Sync Failed:", e);
-            updateBanner("OFFLINE MODE - SCAN USER ID", "status-waiting");
+            updateBanner("SCAN USER ID (OFFLINE)", "status-waiting");
         }
     }
 
@@ -102,10 +148,7 @@
         try {
             await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
             syncBorrowedList();
-        } catch (err) { 
-            console.error(err);
-            updateBanner("CAMERA ERROR", "status-error");
-        }
+        } catch (err) { updateBanner("CAMERA ERROR", "status-error"); }
     }
 
     function onScanSuccess(decodedText) {
@@ -114,7 +157,6 @@
         if (cleanData === lastScanned && (now - lastScanTime) < 2000) return;
         if (isProcessing) return;
 
-        // User ID Regex (Starts with S or T followed by numbers)
         if (!userId && cleanData.match(/^[ST]\d+/i)) {
             userId = cleanData.toUpperCase();
             lastScanned = cleanData; lastScanTime = now;
@@ -123,7 +165,6 @@
             updateBanner("READY TO SCAN IPADS", "status-success");
             playBeep(880, 200);
         } 
-        // iPad ID Regex (Starts with iPad-)
         else if (userId && cleanData.match(/^iPad-\d+/i)) {
             if (mode === 'borrow' && unavailableIpads.includes(cleanData)) {
                 updateBanner("ALREADY BORROWED", "status-error");
@@ -148,35 +189,22 @@
 
     async function finishSession() {
         if (!userId || sessionHistory.length === 0 || isProcessing) return;
-        
         isProcessing = true;
         document.getElementById('finishBtn').disabled = true;
         updateBanner("SAVING TO CLOUD...", "status-waiting");
 
-        const payload = {
-            action: mode,
-            userId: userId,
-            ipadId: sessionHistory
-        };
-
         try {
-            // Using text/plain to avoid CORS pre-flight triggers while sending JSON
             await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ action: mode, userId: userId, ipadId: sessionHistory })
             });
-
-            // Since no-cors hides response, we assume success if no network crash
-            updateBanner("✅ SUCCESS: DATA SENT", "status-success");
+            updateBanner("✅ SAVED SUCCESSFULLY", "status-success");
             playBeep(1100, 400);
-            setTimeout(resetApp, 2500);
-            
+            setTimeout(resetApp, 2000);
         } catch (err) {
-            console.error("Sync Error:", err);
-            playError();
-            alert("Connection error. Check Wi-Fi.");
+            alert("Connection Error.");
             isProcessing = false; 
             document.getElementById('finishBtn').disabled = false;
         }
@@ -184,10 +212,9 @@
 
     function renderHistory() {
         const list = document.getElementById('historyList');
-        document.getElementById('sessionCount').innerText = "Qty: " + sessionHistory.length;
         list.innerHTML = [...sessionHistory].reverse().map((id, i) => `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #334155;">
-                <span style="font-weight:bold; letter-spacing:1px;">${id}</span>
+                <span style="font-weight:bold;">${id}</span>
                 <button class="delete-btn" onclick="removeItem(${i})">DELETE</button>
             </div>
         `).join('');
@@ -198,15 +225,19 @@
         const actualIndex = sessionHistory.length - 1 - i;
         sessionHistory.splice(actualIndex, 1);
         renderHistory();
-        if (sessionHistory.length === 0) {
-            document.getElementById('historyList').style.display = 'none';
+        if (sessionHistory.length === 0) updateBanner("READY TO SCAN IPADS", "status-waiting");
+    }
+
+    function clearBatch() {
+        if(confirm("Clear all scanned iPads in this session?")) {
+            sessionHistory = [];
+            renderHistory();
             updateBanner("READY TO SCAN IPADS", "status-waiting");
         }
     }
 
     function setMode(m) { 
-        mode = m; 
-        resetApp(); 
+        mode = m; resetApp(); 
         document.getElementById('btnBorrow').classList.toggle('active', m==='borrow'); 
         document.getElementById('btnReturn').classList.toggle('active', m==='return'); 
         syncBorrowedList(); 
