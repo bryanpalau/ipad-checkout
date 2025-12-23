@@ -8,48 +8,29 @@
     <style>
         :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; --danger: #ef4444; }
         
-        /* RESPONSIVE FLEXBOX SETUP */
         body { 
             font-family: -apple-system, sans-serif; 
-            background: var(--bg); 
-            color: white; 
-            margin: 0; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh; 
-            height: -webkit-fill-available; 
-            overflow: hidden; 
+            background: var(--bg); color: white; margin: 0; 
+            display: flex; flex-direction: column; 
+            height: 100vh; height: -webkit-fill-available; overflow: hidden; 
         }
         
         .header { flex-shrink: 0; padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; }
-        
         .mode-toggle { display: flex; background: #0f172a; border-radius: 8px; padding: 4px; margin: 0 auto; max-width: 400px; }
         .mode-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; color: #94a3b8; background: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
         .mode-btn.active { background: var(--primary); color: white; }
         
-        /* FIXED CAMERA - Prevents Squeezing */
         #reader { 
-            width: 100% !important; 
-            max-width: 500px; 
-            margin: 10px auto; 
-            height: 280px !important; 
-            background: black; 
-            border-radius: 12px; 
-            overflow: hidden; 
-            border: 2px solid #334155;
-            flex-shrink: 0; 
+            width: 100% !important; max-width: 500px; margin: 10px auto; 
+            height: 280px !important; background: black; border-radius: 12px; 
+            overflow: hidden; border: 2px solid #334155; flex-shrink: 0; 
         }
         #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
 
         .overlay { 
-            padding: 20px; 
-            background: var(--panel); 
-            border-radius: 24px 24px 0 0; 
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.5); 
-            flex-grow: 1; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
+            padding: 20px; background: var(--panel); border-radius: 24px 24px 0 0; 
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5); flex-grow: 1; 
+            display: flex; flex-direction: column; overflow: hidden; 
         }
 
         .status-banner { flex-shrink: 0; text-align: center; padding: 12px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
@@ -57,20 +38,15 @@
         .status-success { background: var(--success); color: white; border: 2px solid #6ee7b7; }
         .status-error { background: var(--danger); color: white; }
         
-        /* SCROLLABLE LIST AREA */
         #historyList { 
-            flex-grow: 1; 
-            overflow-y: auto; 
-            background: #0f172a; 
-            border-radius: 12px; 
-            margin-bottom: 15px; 
-            border: 1px solid #334155;
+            flex-grow: 1; overflow-y: auto; background: #0f172a; 
+            border-radius: 12px; margin-bottom: 15px; border: 1px solid #334155;
             -webkit-overflow-scrolling: touch;
         }
         
         #userPanel { flex-shrink: 0; display:none; justify-content: space-between; align-items: center; padding: 10px; background: #0f172a; border-radius: 8px; margin-bottom:10px; }
         
-        .action-bar { flex-shrink: 0; display: flex; gap: 10px; align-items: stretch; height: 60px; margin-top: auto; }
+        .action-bar { flex-shrink: 0; display: flex; gap: 10px; height: 60px; margin-top: auto; }
         .btn-action { flex: 1; border-radius: 12px; border: none; background: #334155; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .btn-finish { background: var(--primary); }
         .btn-finish:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -78,9 +54,7 @@
         .delete-btn { background: rgba(239, 68, 68, 0.2); color: #ff8080; border: 1px solid var(--danger); padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
         .clear-btn { background: none; border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.7rem; }
 
-        @media (max-height: 700px) {
-            #reader { height: 200px !important; }
-        }
+        @media (max-height: 700px) { #reader { height: 200px !important; } }
     </style>
 </head>
 <body>
@@ -108,42 +82,40 @@
 </div>
 
 <script>
-    // --- REPLACE THIS WITH YOUR WEB APP URL ---
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-Yl83oyt_fZgKDmEXEjFoDMBNL9qUNtLaWDeeycrS3ToBnfm3pucKWBqT45eypRITQA/exec'; 
+    const SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE'; 
 
     let mode = 'borrow', userId = null, sessionHistory = [], isProcessing = false;
     let unavailableIpads = []; 
     let lastScanned = null, lastScanTime = 0, html5QrCode;
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playBeep(f, d) {
-        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-        o.connect(g); g.connect(audioCtx.destination);
-        o.frequency.value = f; g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d/1000);
-        o.start(); o.stop(audioCtx.currentTime + d/1000);
+    
+    // CUTE SUCCESS SOUND
+    function playSuccess() {
+        const playNote = (f, s, d) => {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = 'sine'; o.frequency.value = f;
+            o.connect(g); g.connect(audioCtx.destination);
+            g.gain.setValueAtTime(0, audioCtx.currentTime + s);
+            g.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + s + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + s + d);
+            o.start(audioCtx.currentTime + s); o.stop(audioCtx.currentTime + s + d);
+        };
+        playNote(880, 0, 0.1); playNote(1100, 0.05, 0.1); // Bright double-chirp
     }
-function playError() {
-    // A soft, low-pitched "nuh-uh" sound using sine waves
-    const playNote = (freq, start, duration) => {
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.type = 'sine'; // Sine is the smoothest, "cutest" sound
-        o.frequency.value = freq;
-        o.connect(g);
-        g.connect(audioCtx.destination);
-        
-        g.gain.setValueAtTime(0, audioCtx.currentTime + start);
-        g.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + start + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + start + duration);
-        
-        o.start(audioCtx.currentTime + start);
-        o.stop(audioCtx.currentTime + start + duration);
-    };
 
-    // Play two quick, soft low tones (like a gentle "uh-oh")
-    playNote(220, 0, 0.15);   // Note 1
-    playNote(180, 0.1, 0.2); // Note 2 slightly lower
-}
+    // CUTE ERROR SOUND
+    function playError() {
+        const playNote = (f, s, d) => {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = 'triangle'; o.frequency.value = f;
+            o.connect(g); g.connect(audioCtx.destination);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime + s);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + s + d);
+            o.start(audioCtx.currentTime + s); o.stop(audioCtx.currentTime + s + d);
+        };
+        playNote(220, 0, 0.2); playNote(180, 0.15, 0.25); // Soft "uh-oh"
+    }
 
     async function syncBorrowedList() {
         try {
@@ -151,16 +123,13 @@ function playError() {
             const data = await resp.json();
             if (data.borrowed) unavailableIpads = data.borrowed;
             updateBanner("STEP 1: SCAN USER ID", "status-waiting");
-        } catch (e) {
-            updateBanner("SCAN USER ID (OFFLINE)", "status-waiting");
-        }
+        } catch (e) { updateBanner("SCAN USER ID (OFFLINE)", "status-waiting"); }
     }
 
     async function startScanner() {
         html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 25, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
         try {
-            await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+            await html5QrCode.start({ facingMode: "environment" }, { fps: 25, qrbox: 250 }, onScanSuccess);
             syncBorrowedList();
         } catch (err) { updateBanner("CAMERA ERROR", "status-error"); }
     }
@@ -171,14 +140,17 @@ function playError() {
         if (cleanData === lastScanned && (now - lastScanTime) < 2000) return;
         if (isProcessing) return;
 
-        if (!userId && cleanData.match(/^[ST]\d+/i)) {
+        // --- USER ID LOGIC ---
+        // Accepts: S/T numbers OR Any ID that is 3+ characters long
+        if (!userId && (cleanData.match(/^[ST]\d+/i) || cleanData.length >= 3)) {
             userId = cleanData.toUpperCase();
             lastScanned = cleanData; lastScanTime = now;
             document.getElementById('userPanel').style.display = 'flex';
             document.getElementById('currentUserId').innerText = userId;
             updateBanner("READY TO SCAN IPADS", "status-success");
-            playBeep(880, 200);
+            playSuccess();
         } 
+        // --- IPAD ID LOGIC ---
         else if (userId && cleanData.match(/^iPad-\d+/i)) {
             if (mode === 'borrow' && unavailableIpads.includes(cleanData)) {
                 updateBanner("ALREADY BORROWED", "status-error");
@@ -193,7 +165,7 @@ function playError() {
                 lastScanned = cleanData; lastScanTime = now;
                 renderHistory();
                 updateBanner("ADDED " + cleanData, "status-success");
-                playBeep(660, 100);
+                playSuccess();
             }
         } else {
             playError();
@@ -205,7 +177,7 @@ function playError() {
         if (!userId || sessionHistory.length === 0 || isProcessing) return;
         isProcessing = true;
         document.getElementById('finishBtn').disabled = true;
-        updateBanner("SAVING TO CLOUD...", "status-waiting");
+        updateBanner("SAVING...", "status-waiting");
 
         try {
             await fetch(SCRIPT_URL, {
@@ -215,10 +187,10 @@ function playError() {
                 body: JSON.stringify({ action: mode, userId: userId, ipadId: sessionHistory })
             });
             updateBanner("✅ SAVED SUCCESSFULLY", "status-success");
-            playBeep(1100, 400);
+            playSuccess();
             setTimeout(resetApp, 2000);
         } catch (err) {
-            alert("Connection Error.");
+            alert("Sync Failed.");
             isProcessing = false; 
             document.getElementById('finishBtn').disabled = false;
         }
@@ -239,13 +211,11 @@ function playError() {
         const actualIndex = sessionHistory.length - 1 - i;
         sessionHistory.splice(actualIndex, 1);
         renderHistory();
-        if (sessionHistory.length === 0) updateBanner("READY TO SCAN IPADS", "status-waiting");
     }
 
     function clearBatch() {
-        if(confirm("Clear all scanned iPads in this session?")) {
-            sessionHistory = [];
-            renderHistory();
+        if(confirm("Clear current session?")) {
+            sessionHistory = []; renderHistory();
             updateBanner("READY TO SCAN IPADS", "status-waiting");
         }
     }
@@ -272,8 +242,7 @@ function playError() {
         document.getElementById('finishBtn').disabled = false; 
         document.getElementById('userPanel').style.display = 'none'; 
         document.getElementById('historyList').style.display = 'none'; 
-        renderHistory(); 
-        updateBanner("STEP 1: SCAN USER ID", "status-waiting"); 
+        renderHistory(); updateBanner("STEP 1: SCAN USER ID", "status-waiting"); 
     }
 
     startScanner();
