@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iPad Express | Batch & Remove Fixed</title>
+    <title>iPad Express | Batch & Remove</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; --danger: #ef4444; }
@@ -27,9 +27,8 @@
         .status-waiting { background: #334155; color: #cbd5e1; }
         .status-success { background: var(--success); color: white; }
 
-        /* BIG REVIEW LIST */
         #historyList { 
-            max-height: 350px; 
+            max-height: 40vh; /* Scaled for mobile view */
             overflow-y: auto; 
             background: #0f172a; 
             border: 2px solid #334155;
@@ -42,7 +41,7 @@
             display: flex; 
             justify-content: space-between; 
             align-items: center;
-            padding: 15px 20px; 
+            padding: 18px; 
             border-bottom: 1px solid #1e293b; 
             font-size: 1.4rem;
             font-weight: bold;
@@ -52,15 +51,16 @@
             background: var(--danger); 
             color: white; 
             border: none; 
-            padding: 8px 12px; 
-            border-radius: 6px; 
-            font-size: 1rem; 
+            padding: 10px 15px; 
+            border-radius: 8px; 
+            font-size: 1.1rem; 
             cursor: pointer;
         }
 
         .footer-btns { display: flex; gap: 10px; }
         .btn-action { flex: 1; padding: 18px; border-radius: 10px; border: none; background: #334155; color: white; font-size: 1.6rem; font-weight: bold; cursor: pointer; }
-        .btn-finish { background: var(--primary); }
+        .btn-finish { background: var(--primary); border: 2px solid #6366f1; }
+        .btn-finish:disabled { opacity: 0.5; }
     </style>
 </head>
 <body>
@@ -91,7 +91,7 @@
 </div>
 
 <script>
-    const SCRIPT_URL = 'YOUR_WEB_APP_URL'; 
+    const SCRIPT_URL = 'PASTE_YOUR_NEW_DEPLOYMENT_URL_HERE'; 
     
     let mode = 'borrow';
     let userId = null;
@@ -114,19 +114,21 @@
     function onScanSuccess(decodedText) {
         if (isProcessing) return;
 
+        // User Scan
         if (!userId && decodedText.match(/^[ST]\d{3,10}$/i)) {
             userId = decodedText.toUpperCase();
             document.getElementById('userPanel').style.display = 'flex';
             document.getElementById('currentUserId').innerText = userId;
             updateBanner("READY TO SCAN IPADS", "success");
-            if (window.navigator.vibrate) window.navigator.vibrate(80);
+            vibrate();
         } 
+        // iPad Scan
         else if (userId && decodedText.match(/^iPad-\d{3,10}$/i)) {
             if (!sessionHistory.includes(decodedText)) {
                 sessionHistory.push(decodedText);
                 renderHistory();
                 updateBanner("ADDED " + decodedText, "success");
-                if (window.navigator.vibrate) window.navigator.vibrate(80);
+                vibrate();
             }
         }
     }
@@ -142,7 +144,7 @@
                     <span>${id}</span>
                     <button class="btn-remove" onclick="removeItem(${index})">Remove</button>
                 </div>
-            `).join('');
+            `).sort().join(''); // Optional sort for easier review
         } else {
             list.style.display = 'none';
         }
@@ -151,27 +153,30 @@
     function removeItem(index) {
         sessionHistory.splice(index, 1);
         renderHistory();
+        if (sessionHistory.length === 0) updateBanner("READY TO SCAN IPADS", "success");
     }
 
     async function finishSession() {
         if (!userId || sessionHistory.length === 0) return;
         
         isProcessing = true;
-        document.getElementById('finishBtn').disabled = true;
+        const finishBtn = document.getElementById('finishBtn');
+        finishBtn.disabled = true;
         updateBanner("SAVING TO SHEETS...", "waiting");
 
         try {
+            // Note: using no-cors because Apps Script is a redirecting service
             await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 body: JSON.stringify({ action: mode, userId: userId, ipadId: sessionHistory })
             });
 
-            updateBanner("✅ ALL SAVED SUCCESSFULLY", "success");
+            updateBanner("✅ ALL " + sessionHistory.length + " SAVED", "success");
             setTimeout(resetApp, 2000);
         } catch (e) {
-            updateBanner("❌ ERROR SAVING", "waiting");
-            document.getElementById('finishBtn').disabled = false;
+            updateBanner("❌ SAVE ERROR", "waiting");
+            finishBtn.disabled = false;
             isProcessing = false;
         }
     }
@@ -190,6 +195,7 @@
         const list = document.getElementById('historyList');
         const isHidden = (list.style.display === 'none' || list.style.display === '');
         list.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) list.scrollTop = 0;
     }
 
     function setMode(m) {
@@ -198,6 +204,8 @@
         document.getElementById('btnReturn').classList.toggle('active', m === 'return');
         resetApp();
     }
+
+    function vibrate() { if (window.navigator.vibrate) window.navigator.vibrate(80); }
 
     startScanner();
 </script>
