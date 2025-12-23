@@ -47,18 +47,23 @@
             position: relative;
         }
 
-        /* Forces the video to fill the vertical space of the iPad */
+        /* Force video to cover the area */
         #reader video {
             width: 100% !important;
             height: 100% !important;
             object-fit: cover !important; 
         }
 
-        /* Forces the scan region overlay to stay square */
+        /* THE FIX: Force the scan region to stay a centered square */
         #reader__scan_region {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        #reader__scan_region video {
+            /* Ensures the video inside the region doesn't force a rectangle */
+            object-fit: cover !important;
         }
 
         .overlay { 
@@ -129,7 +134,7 @@
     
     <div class="footer-btns">
         <button class="btn-action" onclick="toggleHistory()">Review</button>
-        <button class="btn-action btn-finish" onclick="finishSession()">Finish&Reset</button>
+        <button class="btn-action btn-finish" onclick="finishSession()">Finish & Reset</button>
     </div>
 </div>
 
@@ -145,23 +150,17 @@
     async function startScanner() {
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
         
-        // FIXED SQUARE LOGIC:
-        // We calculate a single 'size' variable to ensure width and height are identical.
-        let qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
-            let minEdgePercentage = 0.5; // Set to 0.5 as requested
-            let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-            let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
-            
-            return {
-                width: qrboxSize,
-                height: qrboxSize
-            };
-        }
+        // CALCULATE FIXED SIZE ONCE
+        // This prevents the box from changing shape when the User Info panel appears
+        const readerWidth = document.getElementById("reader").clientWidth;
+        const readerHeight = document.getElementById("reader").clientHeight;
+        const minDimension = Math.min(readerWidth, readerHeight);
+        const squareSize = Math.floor(minDimension * 0.5); // 50% of screen
 
         const config = { 
             fps: 25, 
-            qrbox: qrboxFunction,
-            aspectRatio: 1.0 // This helps maintain the square visual center
+            qrbox: { width: squareSize, height: squareSize }, // Pass object, not function
+            aspectRatio: 1.0 // Locks the scanner view to 1:1
         };
 
         try {
@@ -171,7 +170,7 @@
                 await html5QrCode.start(backCam.id, config, onScanSuccess);
             }
         } catch (err) {
-            console.error(err);
+            console.error("Scanner failed to start:", err);
         }
     }
 
