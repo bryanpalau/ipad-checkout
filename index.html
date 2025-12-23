@@ -18,21 +18,19 @@
         #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
 
         .overlay { padding: 20px; background: var(--panel); border-radius: 24px 24px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); flex-grow: 1; display: flex; flex-direction: column; }
-        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
+        .status-banner { text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; transition: 0.3s; }
         .status-waiting { background: #334155; color: #cbd5e1; }
         .status-success { background: var(--success); color: white; border: 2px solid #6ee7b7; }
         .status-error { background: var(--danger); color: white; }
         
         #historyList { flex-grow: 1; overflow-y: auto; background: #0f172a; border-radius: 12px; margin-bottom: 15px; display: none; }
         
-        /* Fixed Button Height & Alignment */
         .action-bar { display: flex; gap: 10px; align-items: stretch; height: 60px; }
         .btn-action { flex: 1; border-radius: 12px; border: none; background: #334155; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .btn-finish { background: var(--primary); }
         .btn-finish:disabled { opacity: 0.5; }
 
-        /* Delete Button */
-        .delete-btn { background: rgba(239, 68, 68, 0.2); color: #ff8080; border: 1px solid var(--danger); padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; }
+        .delete-btn { background: rgba(239, 68, 68, 0.2); color: #ff8080; border: 1px solid var(--danger); padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -60,20 +58,19 @@
 </div>
 
 <script>
-    const SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE'; 
+    // --- CHANGE THIS TO YOUR NEW DEPLOYMENT URL ---
+    const SCRIPT_URL = 'PASTE_YOUR_NEW_APPS_SCRIPT_URL_HERE'; 
 
     let mode = 'borrow', userId = null, sessionHistory = [], isProcessing = false;
     let lastScanned = null, lastScanTime = 0, html5QrCode;
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
     function playBeep(f, d) {
         const o = audioCtx.createOscillator(), g = audioCtx.createGain();
         o.connect(g); g.connect(audioCtx.destination);
         o.frequency.value = f; g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d/1000);
         o.start(); o.stop(audioCtx.currentTime + d/1000);
     }
-
     function playError() {
         const o = audioCtx.createOscillator(), g = audioCtx.createGain();
         o.type = 'sawtooth'; o.frequency.value = 120;
@@ -93,30 +90,30 @@
 
     function onScanSuccess(decodedText) {
         const now = Date.now();
-        if (decodedText === lastScanned && (now - lastScanTime) < 2000) return;
+        const cleanData = decodedText.trim();
+        if (cleanData === lastScanned && (now - lastScanTime) < 2000) return;
         if (isProcessing) return;
 
-        // User ID Pattern
-        if (!userId && decodedText.match(/^[ST]\d{3,10}$/i)) {
-            userId = decodedText.toUpperCase();
-            lastScanned = decodedText; lastScanTime = now;
+        // User ID Pattern (Starts with S or T)
+        if (!userId && cleanData.match(/^[ST]\d+/i)) {
+            userId = cleanData.toUpperCase();
+            lastScanned = cleanData; lastScanTime = now;
             document.getElementById('userPanel').style.display = 'flex';
             document.getElementById('currentUserId').innerText = userId;
             updateBanner("READY TO SCAN IPADS", "status-success");
             playBeep(880, 200);
         } 
-        // iPad ID Pattern + Double Scan Prevention
-        else if (userId && decodedText.match(/^iPad-\d{3,10}$/i)) {
-            if (!sessionHistory.includes(decodedText)) {
-                sessionHistory.push(decodedText);
-                lastScanned = decodedText; lastScanTime = now;
-                renderHistory();
-                updateBanner("ADDED " + decodedText, "status-success");
-                playBeep(660, 100);
-            } else {
-                // Prevention Logic
+        // iPad ID Pattern (Starts with iPad-)
+        else if (userId && cleanData.match(/^iPad-\d+/i)) {
+            if (sessionHistory.includes(cleanData)) {
+                updateBanner("ALREADY SCANNED", "status-error");
                 playError();
-                updateBanner("ALREADY IN LIST", "status-error");
+            } else {
+                sessionHistory.push(cleanData);
+                lastScanned = cleanData; lastScanTime = now;
+                renderHistory();
+                updateBanner("ADDED " + cleanData, "status-success");
+                playBeep(660, 100);
             }
         } else {
             playError();
@@ -131,7 +128,7 @@
         updateBanner("SAVING TO CLOUD...", "status-waiting");
 
         try {
-            // Using 'no-cors' to prevent the "string pattern" error on GitHub Pages
+            // Using 'no-cors' to bypass GitHub -> Google App Script security pattern error
             await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -144,7 +141,7 @@
             setTimeout(resetApp, 2500);
         } catch (err) {
             playError();
-            alert("Sync Failed: Check your internet connection.");
+            alert("Sync Failed: Check your internet.");
             isProcessing = false; document.getElementById('finishBtn').disabled = false;
         }
     }
@@ -152,20 +149,26 @@
     function renderHistory() {
         const list = document.getElementById('historyList');
         document.getElementById('sessionCount').innerText = "Qty: " + sessionHistory.length;
-        list.innerHTML = sessionHistory.map((id, i) => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #334155;">
-                <span style="font-weight:bold;">${id}</span>
+        // Reversed so latest scan is on top
+        list.innerHTML = [...sessionHistory].reverse().map((id, i) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #334155;">
+                <span style="font-weight:bold; letter-spacing:1px;">${id}</span>
                 <button class="delete-btn" onclick="removeItem(${i})">DELETE</button>
             </div>
-        `).reverse().join('');
+        `).join('');
         list.style.display = 'block';
     }
 
-    function removeItem(i) { 
-        sessionHistory.splice(sessionHistory.length - 1 - i, 1); 
-        renderHistory(); 
+    function removeItem(i) {
+        const actualIndex = sessionHistory.length - 1 - i;
+        sessionHistory.splice(actualIndex, 1);
+        renderHistory();
+        if (sessionHistory.length === 0) {
+            document.getElementById('historyList').style.display = 'none';
+            updateBanner("READY TO SCAN IPADS", "status-waiting");
+        }
     }
-    
+
     function setMode(m) { mode = m; resetApp(); document.getElementById('btnBorrow').classList.toggle('active', m==='borrow'); document.getElementById('btnReturn').classList.toggle('active', m==='return'); }
     function toggleHistory() { const l = document.getElementById('historyList'); l.style.display = l.style.display==='none'?'block':'none'; }
     function updateBanner(t, c) { const b = document.getElementById('statusBanner'); b.innerText = t; b.className = "status-banner " + c; }
