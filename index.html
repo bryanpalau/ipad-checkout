@@ -122,7 +122,7 @@
     
     <div class="footer-btns">
         <button class="btn-action" onclick="toggleHistory()">Review</button>
-        <button class="btn-action btn-finish" onclick="finishSession()">FINISH</button>
+        <button class="btn-action btn-finish" onclick="finishSession()">Finish&Reset</button>
     </div>
 </div>
 
@@ -140,7 +140,7 @@
         
         // This function calculates a dynamic square box based on screen size
         let qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
-            let minEdgePercentage = 0.7; // 70% of the smallest edge
+            let minEdgePercentage = 0.5; // 70% of the smallest edge
             let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
             let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
             return {
