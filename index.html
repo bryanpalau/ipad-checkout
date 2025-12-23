@@ -122,14 +122,28 @@
         o.frequency.value = f; g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d/1000);
         o.start(); o.stop(audioCtx.currentTime + d/1000);
     }
-    function playError() {
-        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-        o.type = 'sawtooth'; o.frequency.value = 120;
-        o.connect(g); g.connect(audioCtx.destination);
-        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
-        o.start(); o.stop(audioCtx.currentTime + 0.5);
-    }
+function playError() {
+    // A soft, low-pitched "nuh-uh" sound using sine waves
+    const playNote = (freq, start, duration) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine'; // Sine is the smoothest, "cutest" sound
+        o.frequency.value = freq;
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        
+        g.gain.setValueAtTime(0, audioCtx.currentTime + start);
+        g.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + start + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + start + duration);
+        
+        o.start(audioCtx.currentTime + start);
+        o.stop(audioCtx.currentTime + start + duration);
+    };
+
+    // Play two quick, soft low tones (like a gentle "uh-oh")
+    playNote(220, 0, 0.15);   // Note 1
+    playNote(180, 0.1, 0.2); // Note 2 slightly lower
+}
 
     async function syncBorrowedList() {
         try {
