@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iPad Express | Full Height Scanner</title>
+    <title>iPad Express | Square Scan Fixed</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --primary: #4f46e5; --success: #10b981; --bg: #0f172a; --panel: #1e293b; }
@@ -38,7 +38,7 @@
 
         .mode-btn.active { background: var(--primary); color: white; }
 
-        /* --- THE FIX: FORCING THE SCANNER TO BE TALLER --- */
+        /* SCANNER CONTAINER */
         #reader { 
             width: 100% !important; 
             flex: 1; 
@@ -47,11 +47,18 @@
             position: relative;
         }
 
-        /* This ensures the video fills the container height */
+        /* Forces the video to fill the vertical space of the iPad */
         #reader video {
             width: 100% !important;
             height: 100% !important;
             object-fit: cover !important; 
+        }
+
+        /* Forces the scan region overlay to stay square */
+        #reader__scan_region {
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .overlay { 
@@ -138,11 +145,13 @@
     async function startScanner() {
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
         
-        // This function calculates a dynamic square box based on screen size
+        // FIXED SQUARE LOGIC:
+        // We calculate a single 'size' variable to ensure width and height are identical.
         let qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
-            let minEdgePercentage = 0.5; // 70% of the smallest edge
+            let minEdgePercentage = 0.5; // Set to 0.5 as requested
             let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
             let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+            
             return {
                 width: qrboxSize,
                 height: qrboxSize
@@ -150,10 +159,9 @@
         }
 
         const config = { 
-            fps: 20, 
+            fps: 25, 
             qrbox: qrboxFunction,
-            // Removes strict aspect ratio to allow the container to dictate the height
-            aspectRatio: undefined 
+            aspectRatio: 1.0 // This helps maintain the square visual center
         };
 
         try {
